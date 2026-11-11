@@ -8,7 +8,8 @@ the internals: read it first, and update it when a decision changes.
 - `project.yml` is the project; run `xcodegen generate` after adding or moving files. Never edit or commit `Chess.xcodeproj`.
 - `tools/fetch-nnue.sh` once, for Stockfish's networks. Without them the app uses the built-in `Fallback` engine.
 - `tools/sim.sh ["iPhone 17 Pro"]` builds and launches on the Simulator.
-- `tools/device.sh [name or UDID]` builds Release and installs on a connected or Wi-Fi-paired iPhone (team KBPJG8WNLV). No TestFlight.
+- `tools/device.sh [name or UDID]` builds Release and installs on a connected or Wi-Fi-paired iPhone (team KBPJG8WNLV).
+- TestFlight: App Store Connect app "Chess a Day" (6833662358), external group "Friends" with the public link https://testflight.apple.com/join/HEGSJfUE. Bump `CURRENT_PROJECT_VERSION`, then `asc xcode archive`, `asc xcode export --xcodebuild-flag=-allowProvisioningUpdates`, and `asc publish testflight --app 6833662358 --ipa .asc/artifacts/Chess.ipa --group Friends --wait`. Artifacts live in `.asc/` (ignored).
 - `tools/shots.sh [device]` screenshots every main screen, light and dark, into `.shots/`. Look at them after any UI change, and once at the largest text size (`xcrun simctl ui <device> content_size accessibility-extra-extra-extra-large`).
 - `swift tools/make-icons.swift` re-renders the three app icons.
 - Debug builds take `-debugOpen game|friend|online|settings-<page>` (pages: root, difficulty, app, game, notifications, about) and `-onboarded YES` as launch arguments; any `@AppStorage` key works too (`-boardTheme sage`).
