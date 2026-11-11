@@ -1,25 +1,27 @@
 # Chess: spec
 
-A calm, one-game iPhone app: play the computer, plus one daily puzzle. Modelled on the
+A calm iPhone chess app: a daily habit against the computer, free play on one phone,
+Game Center matches with friends, and Learn courses. Daily puzzles are planned, not shipped. Modelled on the
 minimalist daily Sudoku app: grey ground, one big white card, round icon buttons, sheets
-with a grabber, a day strip, big pill buttons. Liquid Glass is reserved for the app icon; the interface uses quiet opaque surfaces. No account, no network, no Pro.
+with a grabber, a day strip, big pill buttons. Liquid Glass is reserved for the app icon; the interface uses quiet opaque surfaces. No account of our own, no analytics, no ads, no tracking, no Pro. Game Center uses Apple’s services.
 
-Status: **SwiftUI app, UI polish phase.** Runs on the Simulator; next is your iPhone.
+Status: **SwiftUI app, public beta review pending.** TestFlight: https://testflight.apple.com/join/HEGSJfUE.
+Public website: `apps/web/` in the monorepo (landing, privacy, support); no App Store URL yet.
 
 ## Decisions
 
 | Area | Decision |
 |---|---|
 | Platform | iPhone only, iOS 18+. SwiftUI, with UIKit only where SwiftUI has no API (haptics, dynamic colours). No Mac app. |
-| Project | XcodeGen (`project.yml`); `Chess.xcodeproj` is generated and not committed. |
+| Project | iOS lives in `apps/ios/`; commands and paths below are relative to that directory. XcodeGen (`project.yml`); `Chess.xcodeproj` is generated and not committed. |
 | Rules | ChessKit (`chesskit-swift`, MIT): legal moves, check, mate, draws, promotion. |
 | Engine | Stockfish 17 through ChessKitEngine (MIT wrapper, GPL engine). Its two NNUE networks (~75 MB) come from `tools/fetch-nnue.sh`; without them the app plays its small built-in engine (`Fallback`). |
 | License | GPLv3 for the whole repo, since it ships Stockfish. |
 | Pieces | Three lichess sets as vector assets, namespaced in the catalog: cburnett (GPLv2+), Merida (GPLv2+), Chessnut (Apache 2.0). |
 | Look | Sudoku a Day's own tokens (below), SF Pro Rounded everywhere via `.fontDesign(.rounded)`. |
-| Network | None. Puzzles ship in the app. |
-| Data | Settings in `@AppStorage`; the current game and the day history as JSON in Application Support. |
-| Testing | Simulator and your own iPhone straight from the command line (`tools/sim.sh`, `tools/device.sh`); no TestFlight. |
+| Network | Online matches use Apple Game Center (authentication runs at launch). Learn PGNs ship in the app; developer scripts fetch them before bundling. No app-owned server. |
+| Data | Settings in `@AppStorage` (UserDefaults); computer/free-play games, history and Learn progress as JSON in Application Support. Online match moves and the White player’s Game Center ID go through Apple Game Center. |
+| Testing | Simulator and iPhone via `tools/sim.sh` and `tools/device.sh`; TestFlight external group “Friends” (review pending). |
 
 The Exact prototype (Contract + TypeScript) is kept in `archive/exact-prototype` as a visual reference.
 
@@ -101,7 +103,7 @@ No placement test. The level can be changed at any time.
 - The rows read White and Black; "To move" marks whose turn it is. Resign resigns for the side to move. The result reads "White wins", "Black wins" or "Draw".
 - The clock works as in a computer game. Free play doesn't count toward the streak.
 
-## Daily puzzle
+## Daily puzzle (planned, not shipped)
 
 - One puzzle per date per level: a stable pick from that level's band, indexed by the date.
 - Strict, as on lichess: one wrong move fails it. Retry is allowed but doesn't count. No hints.
@@ -123,7 +125,7 @@ Back button and a centred title:
 - **App Settings**: Light / Auto / Dark segmented pill · App Icon picker (`setAlternateIconName`) · Haptic Feedback switch · Sounds switch.
 - **Game Settings**: board (Stone, Sand, Sage, Sky, Lilac) · pieces (Classic cburnett, Merida, Chessnut) · clock · coordinates · show legal moves · always promote to queen · turn board in free play. The board and pieces apply everywhere a board is drawn.
 - **Notifications**: daily reminder on/off and its hour.
-- **Feedback and more**: send feedback (mail), licenses (Stockfish GPLv3, ChessKit and ChessKitEngine MIT, cburnett, lichess puzzles CC0), version.
+- **About**: GPLv3; Stockfish 17 (GPLv3), ChessKit and ChessKitEngine (MIT), cburnett and Merida (GPLv2+), Chessnut (Apache 2.0), Vortex (MIT). Learn credits: The London System, Italian Opening and Caro-Kann Defense by LeninPerez; The Sicilian Dragon by Sidattack243.
 
 ## Stats and awards (after v1's core loop)
 
@@ -157,7 +159,22 @@ Taken from sudokuaday.com's CSS custom properties, so the app matches the refere
 
 ## Internals
 
+Repository layout (all remaining file paths in this spec are relative to `apps/ios/`):
+
+```text
+AGENTS.md                   shared instructions
+LICENSE                     GPLv3
+package.json                pnpm + Turbo scripts (web only)
+pnpm-workspace.yaml         apps/* workspace
+pnpm-lock.yaml              committed dependency lock
+turbo.json                  web build, lint and typecheck tasks
+apps/web/                   Next.js public site: /, /privacy, /support
+apps/ios/                   iOS project root described below
 ```
+
+iOS file map, relative to `apps/ios/`:
+
+```text
 project.yml                 XcodeGen: targets, packages (ChessKit, ChessKitEngine, Vortex), signing team, alternate icons
 Chess/ChessApp.swift        the app, RootView (onboarding or home), scheme, rounded font
 Chess/Design/               Theme (tokens), Components (buttons, rows, chips), FlowLayout
@@ -167,7 +184,13 @@ Chess/Views/                OnboardingView, HomeView (+ HomeRow, SidePicker, Day
 Chess/Assets.xcassets       pieces (SVG), AccentColor, LaunchBackground, AppIcon
 Chess/NNUE/                 Stockfish networks (git-ignored; tools/fetch-nnue.sh)
 Chess/Sounds/               move.wav, capture.wav, end.wav (synthesised)
-tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh, make-icons.swift
+tools/                      fetch-nnue.sh, fetch-courses.sh, sim.sh, device.sh, bench-device.sh, shots.sh, make-icons.swift
+Chess/Learn/                bundled courses, lesson player and local progress
+Chess/Online/               Apple Game Center turn-based matches
+art/, archive/              source art and historical Exact prototype
+Chess-B3-Glass.icon          alternate editable icon source
+chess-icon-b3-glass.png     app icon export (copied to apps/web/public)
+build/, .asc/, .shots/       ignored local build, release and screenshot artifacts
 ```
 
 - **The saved game is the moves.** `game.json` holds the UCI moves, side, level, clock and ending; the board is always rebuilt by replaying them, so it can't disagree with the file.
@@ -203,5 +226,5 @@ tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh, make-ico
 
 ## Not in v1
 
-Online play, accounts, lichess API, opening explorer, Maia/human-like nets, post-game
+App-owned accounts, runtime lichess API, opening explorer, Maia/human-like nets, post-game
 review/accuracy, hints, undo, iPad, Mac, widgets, Live Activities.

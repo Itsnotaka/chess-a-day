@@ -1,9 +1,19 @@
 # Chess
 
-A calm, one-game iPhone chess app in SwiftUI. `SPEC.md` is the product, the design tokens and
+A calm, one-game iPhone chess app in SwiftUI. `apps/ios/SPEC.md` is the product, the design tokens and
 the internals: read it first, and update it when a decision changes.
 
-## Build and run
+## Layout
+
+- `apps/ios/`: Swift sources (`Chess/`), XcodeGen project, tools, art, archive and spec.
+- `apps/web/`: public Next.js App Router site (landing, privacy and support).
+- Root: pnpm workspace, Turborepo configuration, agent instructions and GPLv3 license.
+- iOS local artifacts (`build/`, `.asc/`, `.shots/`, `Chess.xcodeproj`, NNUE networks) stay inside `apps/ios/` and are ignored.
+- Swift is not a pnpm package and is not built by Turbo.
+
+## iOS build and run
+
+Run every command below **from `apps/ios/`** (`cd apps/ios` from the repository root).
 
 - `project.yml` is the project; run `xcodegen generate` after adding or moving files. Never edit or commit `Chess.xcodeproj`.
 - `tools/fetch-nnue.sh` once, for Stockfish's networks. Without them the app uses the built-in `Fallback` engine.
@@ -14,7 +24,23 @@ the internals: read it first, and update it when a decision changes.
 - `swift tools/make-icons.swift` re-renders the three app icons.
 - Debug builds take `-debugOpen game|friend|online|settings-<page>` (pages: root, difficulty, app, game, notifications, about) and `-onboarded YES` as launch arguments; any `@AppStorage` key works too (`-boardTheme sage`).
 
-## Rules
+## Web build and run
+
+- From the repository root: `pnpm install`, `pnpm --filter web dev`, `pnpm --filter web typecheck`, `pnpm --filter web lint`.
+- Root `pnpm build`, `pnpm lint` and `pnpm typecheck` delegate to Turbo; they only operate on web tasks, never Swift.
+- `pnpm --filter web build` builds Next.js; `pnpm --filter web start` serves that build.
+- Vercel: Root Directory **`apps/web`**, framework **Next.js**, Node.js **24.x**. Enable access to files outside the Root Directory. Set `ENABLE_EXPERIMENTAL_COREPACK=1`, install command `cd ../.. && corepack pnpm install --frozen-lockfile`, build command `pnpm build`, default output directory. The root `packageManager` pins pnpm; no `vercel.json` is needed. Vercel supplies `VERCEL_PROJECT_PRODUCTION_URL` for metadata; local metadata falls back to `http://localhost:3000`.
+
+## Web rules
+
+- TypeScript strict, React Server Components by default, App Router, Tailwind CSS v4. No external font downloads.
+- Colours use semantic CSS variables in `apps/web/src/app/globals.css`, with light and dark schemes. Rounded system type, 36 px cards and pill controls match the app.
+- Use semantic HTML, visible keyboard focus, accessible names and at least 44 px control targets. Keep the layout usable at 360 px and with zoomed text.
+- Keep motion optional and minimal; respect `prefers-reduced-motion`. No analytics, ads, tracking or invented product claims.
+- Verify copy against Swift sources and the spec. Puzzles and awards are not shipped; beta review is pending. Use “Join the beta”, not an invented App Store link.
+- Keep privacy and support accurate when storage, networking or contact details change. Contact: `itsnotaka@gmail.com`.
+
+## iOS rules
 
 - iPhone only. SwiftUI first; UIKit only where SwiftUI has no API.
 - Colours come from `Theme` (Sudoku a Day's tokens), never a literal in a view. Levels colour themselves through `Level.tint`.

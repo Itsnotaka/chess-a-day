@@ -1,7 +1,17 @@
-/build/
-/Chess.xcodeproj/
-/Chess/NNUE/*.nnue
-.DS_Store
+# iOS: generated project, local builds, assets and release artifacts
+/apps/ios/build/
+/apps/ios/Chess.xcodeproj/
+/apps/ios/Chess/NNUE/*.nnue
+/apps/ios/.shots/
+/apps/ios/.asc/
 xcuserdata/
-/.shots/
-.asc/
+.DS_Store
+
+# Web and workspace tooling
+node_modules/
+.next/
+.turbo/
+.vercel/
+*.tsbuildinfo
+.env*
+!.env.example
