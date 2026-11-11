@@ -9,7 +9,7 @@ struct DayMark: Codable, Equatable, Sendable {
 }
 
 /// Days played, kept as JSON in Application Support. A day counts toward the streak
-/// when it has both a finished game and the day's puzzle solved.
+/// when it has a finished game or the day's puzzle solved; doing both fills its ring.
 @MainActor
 @Observable
 final class History {
@@ -31,7 +31,7 @@ final class History {
 
   func streak(today: Date = .now) -> Int {
     let calendar = Calendar.current
-    let counted = { (date: Date) in self.days[DayKey.of(date)].map { $0.game && $0.puzzle } ?? false }
+    let counted = { (date: Date) in (self.days[DayKey.of(date)]?.count ?? 0) > 0 }
     let start = counted(today) ? today : calendar.date(byAdding: .day, value: -1, to: today) ?? today
     return sequence(first: start) { calendar.date(byAdding: .day, value: -1, to: $0) }
       .prefix { counted($0) }

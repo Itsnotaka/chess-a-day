@@ -15,7 +15,7 @@ Status: **SwiftUI app, UI polish phase.** Runs on the Simulator; next is your iP
 | Rules | ChessKit (`chesskit-swift`, MIT): legal moves, check, mate, draws, promotion. |
 | Engine | Stockfish 17 through ChessKitEngine (MIT wrapper, GPL engine). Its two NNUE networks (~75 MB) come from `tools/fetch-nnue.sh`; without them the app plays its small built-in engine (`Fallback`). |
 | License | GPLv3 for the whole repo, since it ships Stockfish. |
-| Pieces | cburnett SVGs (lichess, GPLv2+), as vector assets. |
+| Pieces | Three lichess sets as vector assets, namespaced in the catalog: cburnett (GPLv2+), Merida (GPLv2+), Chessnut (Apache 2.0). |
 | Look | Sudoku a Day's own tokens (below), SF Pro Rounded everywhere via `.fontDesign(.rounded)`. |
 | Network | None. Puzzles ship in the app. |
 | Data | Settings in `@AppStorage`; the current game and the day history as JSON in Application Support. |
@@ -57,19 +57,28 @@ No placement test. The level can be changed at any time.
 
 ## Home
 
-- **Top bar**, round 52 pt buttons: **Level** (filled accent, the level's symbol, opens Difficulty) · **Streak** (laurel, opens the streak sheet) · **Awards** (trophy) | **Stats** (bars) · **Settings** (gear).
-- **The card** (white, 36 pt radius, soft shadow): the weekday in faded heavy type over the date in bold heavy type ("Thursday / May 15"), a status line ("● Your move" for a game in progress, "Today's game: won" and so on), a slightly tilted board preview (the game in progress, else the start position) with a black **Play** pill over it, and a three-way **White · Random · Black** picker under it.
-- **Daily puzzle row** under the card: a smaller rounded row, "Daily puzzle", the level, and Solve / Solved.
+- **Top bar**, round 52 pt buttons: **Level** (filled with the level's colour, opens Difficulty) · **Streak** (laurel) · **Awards** (trophy) | **Stats** (bars) · **Settings** (gear). Streak, Awards and Stats have no screens yet.
+- **The card** (white, 36 pt radius, soft shadow): the weekday in faded heavy type over the date in bold heavy type ("Thursday / May 15"), a status line ("● Your move" for a game in progress, "Today's game: won" and so on), a slightly tilted board preview (the game in progress, else the start position) with a black **Play** pill over it, and a three-way **White · Random · Black** picker under it ("Playing as White · Medium" while a game is in progress).
+- **Two tiles** under the card: **Daily puzzle** (the level, Solve / Solved) and **Free play** (Two players / Continue game).
 - **Day strip** at the bottom: five days centred on the selected one, each with its weekday, its number and a ring. Dashed ring: nothing counted. Half ring: a game *or* the puzzle. Full ring: both. Past days open their puzzle; the computer is always today.
 
 ## Games against the computer
 
 - Unlimited games. Before Play: White, Black or Random. The board flips when you're Black.
 - **No hints and no undo.** Resign is the only way out of a game, besides finishing it.
+- Layout, top to bottom: header (close, level and elapsed time, Game Settings), the computer's row, the board, your row, the move list, then Resign and Flip board. Whose move it is shows as an ink badge on that player's row.
 - **Time control** (Game Settings): None (default; an elapsed timer like Sudoku's "○ 1:23") or 10+0, 5+3, 3+2. With a clock, both clocks show, and a flag loses.
 - Input: tap-tap and drag, legal-move dots and capture rings, last-move tint, check tint on the king, a slide animation, a haptic on drop, promotion picker (Q R B N).
 - A game in progress is kept across launches.
 - End: a sheet shows the result (Win / Draw / Loss and the reason), the moves count, and buttons for Play again and Done.
+
+## Free play
+
+- Two people, one phone. Either side moves in turn; there is no engine and no level.
+- Opened from the **Free play** tile on home; it keeps its own saved game (`free-play.json`), so a computer game in progress is never lost.
+- White plays from the bottom. **Turn Board in Free Play** (Game Settings) turns it to the side to move after each move; Flip turns it by hand.
+- The rows read White and Black; "To move" marks whose turn it is. Resign resigns for the side to move. The result reads "White wins", "Black wins" or "Draw".
+- The clock works as in a computer game. Free play doesn't count toward the streak.
 
 ## Daily puzzle
 
@@ -81,9 +90,8 @@ No placement test. The level can be changed at any time.
 ## Streaks
 
 - Unlimited play, but **one game and one puzzle per day count**.
-- A day **counts** when it has one finished computer game (any result) and the day's puzzle solved.
+- A day **counts** when it has a finished computer game (any result) **or** the day's puzzle solved. Doing both fills the day's ring; one fills half.
 - The streak is the run of counted days ending today or yesterday.
-- Open question: should a day with just one of the two still keep the streak alive?
 
 ## Settings (a sheet with a grabber over home, at 70% and large)
 
@@ -92,7 +100,7 @@ Back button and a centred title:
 
 - **Difficulty**: the five level rows from onboarding.
 - **App Settings**: Light / Auto / Dark segmented pill · App Icon picker (`setAlternateIconName`) · Haptic Feedback switch · Sounds switch.
-- **Game Settings**: time control · coordinates on/off · show legal moves on/off · auto-queen on/off · board theme (Stone, Sand, Mint, Graphite).
+- **Game Settings**: board (Stone, Sand, Sage, Sky, Lilac) · pieces (Classic cburnett, Merida, Chessnut) · clock · coordinates · show legal moves · always promote to queen · turn board in free play. The board and pieces apply everywhere a board is drawn.
 - **Notifications**: daily reminder on/off and its hour.
 - **Feedback and more**: send feedback (mail), licenses (Stockfish GPLv3, ChessKit and ChessKitEngine MIT, cburnett, lichess puzzles CC0), version.
 
@@ -122,7 +130,7 @@ Taken from sudokuaday.com's CSS custom properties, so the app matches the refere
 
 - One colour per level, as Sudoku a Day colours its difficulties: Easy teal #2FAFC8, Medium purple #AF51DD, Hard red #FC3E30, Expert brown #A1835D, Master ink. The level button, the settings banner and the computer's badge take it.
 - The weekday is a heavy title in a #BFBFBF-to-clear gradient above the date in ink, tracked tight (-0.04 em).
-- The board is soft greys (#FAFAFA / #DCDCDC) inside a 2 pt ink outline, as Sudoku's grid is.
+- The board sits inside a 2 pt ink outline, as Sudoku's grid does. Its squares come from the chosen `BoardTheme`; Stone (#FAFAFA / #DCDCDC) is the default. Coordinates sit outside the board in ink muted.
 - Every button is round (52 pt) or a pill (50–56 pt). Cards have 36 pt continuous corners and soft, wide shadows.
 - Motion: one short spring that overshoots a touch (`Theme.spring`), pieces slide on a firmer one, presses sink to 95%. Reduce Motion turns slides into fades.
 

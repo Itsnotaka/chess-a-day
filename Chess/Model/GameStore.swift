@@ -28,14 +28,23 @@ struct BoardPiece: Identifiable, Equatable {
   let piece: Piece
 }
 
+/// Against the computer, or two people passing one phone.
+enum GameMode: String, Identifiable, Sendable {
+  case computer, friend
+  var id: Self { self }
+}
+
+/// How a game ended, from the point of view the screen speaks from.
 enum GameResult: Equatable {
-  case win, loss, draw
+  case win, loss, draw, winner(Piece.Color)
 
   var title: String {
     switch self {
     case .win: "You won"
     case .loss: "You lost"
     case .draw: "Draw"
+    case .winner(.white): "White wins"
+    case .winner(.black): "Black wins"
     }
   }
 }
@@ -50,15 +59,22 @@ final class GameStore {
   private(set) var takenByYou: [Piece] = []
   private(set) var takenByThem: [Piece] = []
   private(set) var thinking = false
+  /// The moves in SAN, for the move list.
+  private(set) var san: [String] = []
+  /// Turns the board for a look from the other side; not saved.
+  var flipped = false
 
   var selected: Square?
   var promotion: (from: Square, to: Square)?
 
-  private let url = Storage.file("game.json")
+  let mode: GameMode
+  private let url: URL
   private let history: History
 
-  init(history: History) {
+  init(mode: GameMode, history: History) {
+    self.mode = mode
     self.history = history
+    url = Storage.file(mode == .computer ? "game.json" : "free-play.json")
     saved = Storage.read(SavedGame.self, from: url)
     rebuild()
   }
@@ -68,7 +84,20 @@ final class GameStore {
   var active: Bool { saved != nil && !isOver }
   var you: Piece.Color { saved?.you ?? .white }
   var level: Level { saved?.level ?? .medium }
-  var yourTurn: Bool { active && board.position.sideToMove == you && !thinking }
+  var yourTurn: Bool { active && !thinking && (mode == .friend || board.position.sideToMove == you) }
+  var sideToMove: Piece.Color { board.position.sideToMove }
+
+  /// The side drawn at the bottom: yours against the computer; in free play White, or the side
+  /// to move when the board turns each move; either reversed by Flip.
+  func bottom(turnBoard: Bool) -> Piece.Color {
+    let base: Piece.Color = mode == .friend ? (turnBoard ? sideToMove : .white) : you
+    return flipped ? base.opposite : base
+  }
+
+  func taken(by color: Piece.Color) -> [Piece] { color == you ? takenByYou : takenByThem }
+
+  /// Whether the person holding the phone may move `color`'s pieces now.
+  func controls(_ color: Piece.Color) -> Bool { yourTurn && color == sideToMove }
 
   var isOver: Bool { saved?.ending != nil || boardEnded }
 
@@ -82,11 +111,15 @@ final class GameStore {
   var result: GameResult? {
     guard let saved, isOver else { return nil }
     switch saved.ending {
-    case let .resigned(loser), let .flagged(loser): return loser == you ? .loss : .win
+    case let .resigned(loser), let .flagged(loser): return outcome(loser: loser)
     case nil: break
     }
-    if case let .checkmate(color) = board.state { return color == you ? .loss : .win }
+    if case let .checkmate(color) = board.state { return outcome(loser: color) }
     return .draw
+  }
+
+  private func outcome(loser: Piece.Color) -> GameResult {
+    mode == .friend ? .winner(loser.opposite) : loser == you ? .loss : .win
   }
 
   var reason: String {
@@ -132,15 +165,17 @@ final class GameStore {
 
   func newGame(side: SidePreference, level: Level, timeControl: TimeControl) {
     let now = Date.now
-    let you: Piece.Color = switch side {
+    let picked: Piece.Color = switch side {
     case .white: .white
     case .black: .black
     case .random: Bool.random() ? .white : .black
     }
+    let you: Piece.Color = mode == .friend ? .white : picked
     let base = timeControl.base.map { Double($0.components.seconds) } ?? 0
     saved = SavedGame(you: you, level: level, timeControl: timeControl, startedAt: now, lastMoveAt: now, whiteLeft: base, blackLeft: base)
     selected = nil
     promotion = nil
+    flipped = false
     persist()
     rebuild()
     Task { await ChessEngine.shared.newGame() }
@@ -153,7 +188,7 @@ final class GameStore {
       attempt(from: selected, to: square)
       return
     }
-    if yourTurn, let piece = board.position.piece(at: square), piece.color == you, selected != square {
+    if let piece = board.position.piece(at: square), controls(piece.color), selected != square {
       selected = square
       Haptics.selection()
       return
@@ -175,7 +210,7 @@ final class GameStore {
 
   func resign() {
     guard active, var saved else { return }
-    saved.ending = .resigned(you)
+    saved.ending = .resigned(mode == .friend ? sideToMove : you)
     self.saved = saved
     finishIfOver()
   }
@@ -223,7 +258,7 @@ final class GameStore {
   }
 
   private func replyIfNeeded() {
-    guard active, let saved, board.position.sideToMove != saved.you else { return }
+    guard mode == .computer, active, let saved, board.position.sideToMove != saved.you else { return }
     thinking = true
     let fen = board.position.fen
     let level = saved.level
@@ -244,8 +279,8 @@ final class GameStore {
     saved.recorded = true
     self.saved = saved
     persist()
-    history.mark(DayKey.of(.now), game: true)
-    Haptics.finish(won: result == .win)
+    if mode == .computer { history.mark(DayKey.of(.now), game: true) }
+    Haptics.finish(won: result != .loss)
   }
 
   private func persist() {
@@ -261,6 +296,7 @@ final class GameStore {
     var mine: [Piece] = []
     var theirs: [Piece] = []
     var last: (Square, Square)?
+    var notation: [String] = []
     var captured = false
     for uci in saved?.moves ?? [] {
       guard let move = Self.apply(uci, to: &board) else { break }
@@ -278,10 +314,12 @@ final class GameStore {
       }
       ids[move.end] = id
       last = (move.start, move.end)
+      notation.append(move.san)
     }
     self.board = board
     lastMove = last
     lastCapture = captured
+    san = notation
     takenByYou = mine.sorted { $0.kind.worth > $1.kind.worth }
     takenByThem = theirs.sorted { $0.kind.worth > $1.kind.worth }
     pieces = board.position.pieces.map { BoardPiece(id: ids[$0.square] ?? $0.square.notation, piece: $0) }

@@ -125,7 +125,7 @@ struct AppMark: View {
   var size: CGFloat = 64
 
   var body: some View {
-    Image("wN")
+    PieceSet.cburnett.image("wN")
       .resizable()
       .scaledToFit()
       .padding(size * 0.14)

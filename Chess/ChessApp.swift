@@ -3,25 +3,41 @@ import SwiftUI
 @main
 struct ChessApp: App {
   @State private var history: History
-  @State private var game: GameStore
+  @State private var games: Games
   @AppStorage(Pref.appearance) private var appearance = Appearance.system.rawValue
 
   init() {
     let history = History()
     _history = State(initialValue: history)
-    _game = State(initialValue: GameStore(history: history))
+    _games = State(initialValue: Games(history: history))
   }
 
   var body: some Scene {
     WindowGroup {
       RootView()
         .environment(history)
-        .environment(game)
+        .environment(games)
+        .environment(games.computer)
         .fontDesign(.rounded)
         .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
         .task { await ChessEngine.shared.warmUp() }
     }
   }
+}
+
+/// The two saved games: one against the computer, one of free play.
+@MainActor
+@Observable
+final class Games {
+  let computer: GameStore
+  let friend: GameStore
+
+  init(history: History) {
+    computer = GameStore(mode: .computer, history: history)
+    friend = GameStore(mode: .friend, history: history)
+  }
+
+  func store(_ mode: GameMode) -> GameStore { mode == .computer ? computer : friend }
 }
 
 struct RootView: View {

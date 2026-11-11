@@ -25,9 +25,8 @@ enum Theme {
   static let shadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.07, darkAlpha: 0)
   static let hairline = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.06, darkAlpha: 0.07)
 
+  /// What sits on every board theme; the squares themselves are `BoardTheme`'s.
   enum Board {
-    static let light = Color(light: 0xFAFAFA, dark: 0x4A4A4A)
-    static let dark = Color(light: 0xDCDCDC, dark: 0x363636)
     static let edge = Color(light: 0x262626, dark: 0xD9D9D9)
     static let select = Color(light: 0x262626, dark: 0xD9D9D9, lightAlpha: 0.22, darkAlpha: 0.26)
     static let last = Color(light: 0x262626, dark: 0xD9D9D9, lightAlpha: 0.13, darkAlpha: 0.16)

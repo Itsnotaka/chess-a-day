@@ -10,7 +10,7 @@ the internals: read it first, and update it when a decision changes.
 - `tools/sim.sh ["iPhone 17 Pro"]` builds and launches on the Simulator.
 - `tools/device.sh [name or UDID]` builds Release and installs on a connected or Wi-Fi-paired iPhone (team KBPJG8WNLV). No TestFlight.
 - `tools/shots.sh [device]` screenshots every main screen, light and dark, into `.shots/`. Look at them after any UI change.
-- Debug builds take `-debugOpen game|root|app|difficulty|game|notifications|about` and `-onboarded YES` as launch arguments.
+- Debug builds take `-debugOpen game|friend|settings-<page>` (pages: root, difficulty, app, game, notifications, about) and `-onboarded YES` as launch arguments; any `@AppStorage` key works too (`-boardTheme sage`).
 
 ## Rules
 

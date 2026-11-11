@@ -204,7 +204,7 @@ private struct IconTile: View {
   let selected: Bool
 
   var body: some View {
-    Image(style == "night" ? "bN" : "wN")
+    PieceSet.cburnett.image(style == "night" ? "bN" : "wN")
       .resizable().scaledToFit()
       .padding(18)
       .opacity(style == "mono" ? 0.45 : 1)
@@ -234,9 +234,52 @@ private struct GameSettingsPage: View {
   @AppStorage(Pref.coordinates) private var coordinates = true
   @AppStorage(Pref.legalMoves) private var legalMoves = true
   @AppStorage(Pref.autoQueen) private var autoQueen = false
+  @AppStorage(Pref.turnBoard) private var turnBoard = false
+  @AppStorage(Pref.boardTheme) private var boardTheme = BoardTheme.stone
+  @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
 
   var body: some View {
     VStack(spacing: 0) {
+      SectionLabel(title: "Board").padding(.bottom, 12)
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: 12) {
+          ForEach(BoardTheme.allCases) { theme in
+            ThemeChoice(name: theme.name, selected: boardTheme == theme) {
+              withAnimation(Theme.spring) { boardTheme = theme }
+            } tile: {
+              Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow { theme.light; theme.dark }
+                GridRow { theme.dark; theme.light }
+              }
+            }
+          }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 2)
+      }
+
+      SectionLabel(title: "Pieces").padding(.top, 14).padding(.bottom, 12)
+      HStack(spacing: 12) {
+        ForEach(PieceSet.allCases) { set in
+          ThemeChoice(name: set.name, selected: pieceSet == set) {
+            withAnimation(Theme.spring) { pieceSet = set }
+          } tile: {
+            ZStack {
+              boardTheme.light
+              HStack(spacing: -6) {
+                set.image("wN").resizable().scaledToFit()
+                set.image("bN").resizable().scaledToFit()
+              }
+              .padding(8)
+            }
+          }
+        }
+        Spacer(minLength: 0)
+      }
+      .padding(.vertical, 10)
+      .padding(.horizontal, 2)
+
+      Hairline().padding(.top, 14).padding(.bottom, 22)
       SectionLabel(title: "Clock").padding(.bottom, 12)
       FlowLayout(spacing: 8) {
         ForEach(TimeControl.allCases) { option in
@@ -251,7 +294,51 @@ private struct GameSettingsPage: View {
       ToggleRow(symbol: "textformat.abc", title: "Coordinates", isOn: $coordinates)
       ToggleRow(symbol: "smallcircle.filled.circle", title: "Show Legal Moves", isOn: $legalMoves)
       ToggleRow(symbol: "crown.fill", title: "Always Promote to Queen", isOn: $autoQueen)
+      ToggleRow(symbol: "arrow.trianglehead.2.clockwise.rotate.90", title: "Turn Board in Free Play", isOn: $turnBoard)
     }
+  }
+}
+
+/// A choosable look: a rounded tile ringed in ink with a check when chosen, its name below.
+private struct ThemeChoice<Tile: View>: View {
+  let name: String
+  let selected: Bool
+  let action: () -> Void
+  @ViewBuilder let tile: () -> Tile
+
+  var body: some View {
+    Button {
+      action()
+      Haptics.selection()
+    } label: {
+      VStack(spacing: 8) {
+        tile()
+          .frame(width: 76, height: 76)
+          .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+          .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+              .strokeBorder(selected ? Theme.ink : Theme.hairline, lineWidth: selected ? 3.5 : 1.5)
+          }
+          .overlay(alignment: .topTrailing) {
+            if selected {
+              Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundStyle(Theme.onInk)
+                .frame(width: 26, height: 26)
+                .background(Theme.ink, in: Circle())
+                .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2.5))
+                .offset(x: 7, y: -7)
+                .transition(.scale.combined(with: .opacity))
+            }
+          }
+        Text(name)
+          .font(.system(size: 14, weight: .bold))
+          .foregroundStyle(selected ? Theme.ink : Theme.inkMuted)
+      }
+    }
+    .buttonStyle(SoftPress())
+    .accessibilityLabel(name)
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 }
 

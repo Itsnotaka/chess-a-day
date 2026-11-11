@@ -36,19 +36,37 @@ struct BoardView: View {
   @State private var dragFrom: Square?
   @State private var dragPoint: CGPoint?
 
+  /// Room for the rank and file labels outside the board.
+  private var gutter: CGFloat { coordinates ? 18 : 0 }
+  @AppStorage(Pref.turnBoard) private var turnBoard = false
+  @AppStorage(Pref.boardTheme) private var boardTheme = BoardTheme.stone
+  @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
+
+  private var flipped: Bool { game.bottom(turnBoard: turnBoard) == .black }
+
   var body: some View {
     GeometryReader { proxy in
-      let geometry = BoardGeometry(size: proxy.size.width, flipped: game.you == .black)
-      ZStack(alignment: .topLeading) {
-        squares(geometry)
-        pieces(geometry)
-        ghost(geometry)
+      let geometry = BoardGeometry(size: proxy.size.width - gutter, flipped: flipped)
+      VStack(alignment: .leading, spacing: 0) {
+        HStack(spacing: 0) {
+          if coordinates { ranks(geometry) }
+          board(geometry)
+        }
+        if coordinates { files(geometry) }
       }
-      .frame(width: geometry.size, height: geometry.size)
-      .contentShape(Rectangle())
-      .gesture(input(geometry))
     }
     .aspectRatio(1, contentMode: .fit)
+  }
+
+  private func board(_ geometry: BoardGeometry) -> some View {
+    ZStack(alignment: .topLeading) {
+      squares(geometry)
+      pieces(geometry)
+      ghost(geometry)
+    }
+    .frame(width: geometry.size, height: geometry.size)
+    .contentShape(Rectangle())
+    .gesture(input(geometry))
     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.board, style: .continuous))
     .overlay {
       RoundedRectangle(cornerRadius: Theme.Radius.board, style: .continuous)
@@ -57,12 +75,35 @@ struct BoardView: View {
     .overlay { if game.promotion != nil { PromotionPicker() } }
   }
 
+  private func ranks(_ geometry: BoardGeometry) -> some View {
+    VStack(spacing: 0) {
+      ForEach(flipped ? Array(1...8) : Array((1...8).reversed()), id: \.self) { rank in
+        Text("\(rank)").frame(width: gutter, height: geometry.cell)
+      }
+    }
+    .font(.system(size: 12, weight: .bold))
+    .foregroundStyle(Theme.inkMuted)
+    .accessibilityHidden(true)
+  }
+
+  private func files(_ geometry: BoardGeometry) -> some View {
+    HStack(spacing: 0) {
+      ForEach(flipped ? Array("hgfedcba") : Array("abcdefgh"), id: \.self) { file in
+        Text(String(file)).frame(width: geometry.cell, height: gutter)
+      }
+    }
+    .padding(.leading, gutter)
+    .font(.system(size: 12, weight: .bold))
+    .foregroundStyle(Theme.inkMuted)
+    .accessibilityHidden(true)
+  }
+
   private func squares(_ geometry: BoardGeometry) -> some View {
     let targets = Set(legalMoves ? game.targets : [])
     return ForEach(BoardGeometry.all, id: \.self) { square in
       let light = (square.file.number + square.rank.value) % 2 == 1
       ZStack(alignment: .topLeading) {
-        Rectangle().fill(light ? Theme.Board.light : Theme.Board.dark)
+        Rectangle().fill(light ? boardTheme.light : boardTheme.dark)
         if square == game.lastMove?.from || square == game.lastMove?.to {
           Rectangle().fill(Theme.Board.last)
         }
@@ -81,28 +122,15 @@ struct BoardView: View {
             Circle().strokeBorder(Theme.Board.dot, lineWidth: geometry.cell * 0.09).padding(geometry.cell * 0.03)
           }
         }
-        if coordinates { coordinate(square, geometry: geometry) }
       }
       .frame(width: geometry.cell, height: geometry.cell)
       .offset(x: CGFloat(geometry.column(square)) * geometry.cell, y: CGFloat(geometry.row(square)) * geometry.cell)
     }
   }
 
-  @ViewBuilder
-  private func coordinate(_ square: Square, geometry: BoardGeometry) -> some View {
-    let color = Theme.Board.coordinate
-    if geometry.column(square) == 0 {
-      Text("\(square.rank.value)").font(.system(size: 10, weight: .bold)).foregroundStyle(color).padding(3)
-    }
-    if geometry.row(square) == 7 {
-      Text(square.file.rawValue).font(.system(size: 10, weight: .bold)).foregroundStyle(color)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing).padding(.trailing, 3).padding(.bottom, 1)
-    }
-  }
-
   private func pieces(_ geometry: BoardGeometry) -> some View {
     ForEach(game.pieces) { item in
-      Image(item.piece.assetName)
+      pieceSet.image(item.piece)
         .resizable()
         .scaledToFit()
         .frame(width: geometry.cell, height: geometry.cell)
@@ -117,7 +145,7 @@ struct BoardView: View {
   @ViewBuilder
   private func ghost(_ geometry: BoardGeometry) -> some View {
     if let dragFrom, let dragPoint, let piece = game.board.position.piece(at: dragFrom) {
-      Image(piece.assetName)
+      pieceSet.image(piece)
         .resizable()
         .scaledToFit()
         .frame(width: geometry.cell * 1.5, height: geometry.cell * 1.5)
@@ -133,8 +161,8 @@ struct BoardView: View {
       .onChanged { value in
         guard let start = geometry.square(at: value.startLocation) else { return }
         let moved = hypot(value.translation.width, value.translation.height) > 6
-        let mine = game.board.position.piece(at: start)?.color == game.you
-        if moved, game.yourTurn, mine {
+        let mine = game.board.position.piece(at: start).map { game.controls($0.color) } ?? false
+        if moved, mine {
           if dragFrom == nil {
             dragFrom = start
             game.selected = start
@@ -163,6 +191,7 @@ struct BoardView: View {
 /// The four pieces a pawn can become, over a veil on the board.
 struct PromotionPicker: View {
   @Environment(GameStore.self) private var game
+  @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
 
   var body: some View {
     ZStack {
@@ -170,7 +199,7 @@ struct PromotionPicker: View {
       HStack(spacing: 8) {
         ForEach([Piece.Kind.queen, .rook, .bishop, .knight], id: \.self) { kind in
           Button { game.promote(to: kind) } label: {
-            Image(Piece(kind, color: game.you, square: .a1).assetName)
+            pieceSet.image(Piece(kind, color: game.sideToMove, square: .a1))
               .resizable().scaledToFit()
               .frame(width: 54, height: 54)
               .padding(4)
@@ -192,6 +221,8 @@ struct PromotionPicker: View {
 struct MiniBoard: View {
   let pieces: [BoardPiece]
   let flipped: Bool
+  @AppStorage(Pref.boardTheme) private var boardTheme = BoardTheme.stone
+  @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
 
   var body: some View {
     GeometryReader { proxy in
@@ -201,11 +232,11 @@ struct MiniBoard: View {
           for square in BoardGeometry.all {
             let rect = CGRect(x: CGFloat(geometry.column(square)) * geometry.cell, y: CGFloat(geometry.row(square)) * geometry.cell, width: geometry.cell, height: geometry.cell)
             let light = (square.file.number + square.rank.value) % 2 == 1
-            context.fill(Path(rect), with: .color(light ? Theme.Board.light : Theme.Board.dark))
+            context.fill(Path(rect), with: .color(light ? boardTheme.light : boardTheme.dark))
           }
         }
         ForEach(pieces) { item in
-          Image(item.piece.assetName)
+          pieceSet.image(item.piece)
             .resizable().scaledToFit()
             .frame(width: geometry.cell, height: geometry.cell)
             .position(geometry.center(item.piece.square))

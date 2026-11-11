@@ -4,6 +4,7 @@ import SwiftUI
 /// Home: the round buttons, today's card with Play, the daily puzzle row and the day strip.
 struct HomeView: View {
   @Environment(GameStore.self) private var game
+  @Environment(Games.self) private var games
   @Environment(History.self) private var history
   @AppStorage(Pref.level) private var level = Level.medium
   @AppStorage(Pref.side) private var side = SidePreference.white.rawValue
@@ -11,13 +12,17 @@ struct HomeView: View {
 
   @State private var day = Date.now
   @State private var settings: SettingsPage?
-  @State private var playing = false
+  @State private var playing: GameMode?
 
   var body: some View {
     VStack(spacing: 18) {
       topBar
       card
-      puzzleRow
+      HStack(spacing: 12) {
+        HomeTile(symbol: "puzzlepiece.fill", tint: level.tint, title: "Daily puzzle", detail: "\(level.name) · one a day") { settings = .root }
+        HomeTile(symbol: "person.2.fill", tint: Theme.ink, title: "Free play",
+                 detail: games.friend.active ? "Continue game" : "Two players") { playFriend() }
+      }
       DayStrip(selected: $day)
     }
     .padding(.horizontal, 20)
@@ -30,15 +35,16 @@ struct HomeView: View {
         .presentationCornerRadius(Theme.Radius.card)
         .presentationBackground(Theme.card)
     }
-    .fullScreenCover(isPresented: $playing) {
-      GameView()
+    .fullScreenCover(item: $playing) { mode in
+      GameView().environment(games.store(mode))
     }
     #if DEBUG
-    // `simctl launch … -debugOpen game` (or a SettingsPage name) opens a screen for screenshots.
+    // `simctl launch … -debugOpen game|friend|settings-<page>` opens a screen for screenshots.
     .onAppear {
       switch UserDefaults.standard.string(forKey: "debugOpen") {
       case "game"?: play()
-      case let page?: settings = SettingsPage(rawValue: page)
+      case "friend"?: playFriend()
+      case let page?: settings = SettingsPage(rawValue: page.replacingOccurrences(of: "settings-", with: ""))
       case nil: break
       }
     }
@@ -48,10 +54,11 @@ struct HomeView: View {
   private var topBar: some View {
     HStack(spacing: 10) {
       CircleIconButton(symbol: level.symbol, label: "Level: \(level.name)", tint: level.tint) { settings = .difficulty }
-      CircleIconButton(symbol: "laurel.leading", label: "\(history.streak())-day streak") { settings = .root }
-      CircleIconButton(symbol: "trophy.fill", label: "Awards") { settings = .root }
+      // Streak, Awards and Stats get their own screens next; until then they only answer the press.
+      CircleIconButton(symbol: "laurel.leading", label: "\(history.streak())-day streak") { Haptics.selection() }
+      CircleIconButton(symbol: "trophy.fill", label: "Awards") { Haptics.selection() }
       Spacer()
-      CircleIconButton(symbol: "chart.bar.fill", label: "Stats") { settings = .root }
+      CircleIconButton(symbol: "chart.bar.fill", label: "Stats") { Haptics.selection() }
       CircleIconButton(symbol: "gearshape.fill", label: "Settings") { settings = .root }
     }
   }
@@ -87,7 +94,14 @@ struct HomeView: View {
 
       Spacer(minLength: 16)
 
-      SidePicker(side: $side).disabled(game.active).opacity(game.active ? 0.35 : 1)
+      if game.active {
+        Text("Playing as \(game.you == .white ? "White" : "Black") · \(game.level.name)")
+          .font(.system(size: 15, weight: .bold))
+          .foregroundStyle(Theme.ink)
+          .frame(height: 48)
+      } else {
+        SidePicker(side: $side)
+      }
     }
     .padding(.horizontal, 24)
     .padding(.top, 30)
@@ -103,37 +117,50 @@ struct HomeView: View {
     return "\(level.name) · \(timeControl.name)"
   }
 
-  private var puzzleRow: some View {
-    Button { settings = .root } label: {
-      HStack(spacing: 14) {
-        Image(systemName: "puzzlepiece.fill")
-          .font(.system(size: 17, weight: .bold))
-          .foregroundStyle(level.tint)
-          .frame(width: 42, height: 42)
-          .background(Theme.raised, in: Circle())
-        VStack(alignment: .leading, spacing: 2) {
-          Text("Daily puzzle").font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.ink)
-          Text("\(level.name) · one a day").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.inkMuted).lineLimit(1)
-        }
-        Spacer()
-        Text("Solve").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.ink)
-          .padding(.horizontal, 14).frame(height: 34)
-          .background(Theme.raised, in: Capsule())
-      }
-      .padding(.horizontal, 16)
-      .padding(.vertical, 12)
-      .background(Theme.card, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-      .softShadow(radius: 16, y: 6)
-    }
-    .buttonStyle(SoftPress())
-  }
-
   private func play() {
     Haptics.tap()
     if !game.active {
       game.newGame(side: SidePreference(rawValue: side) ?? .white, level: level, timeControl: timeControl)
     }
-    playing = true
+    playing = .computer
+  }
+
+  private func playFriend() {
+    Haptics.tap()
+    if !games.friend.active {
+      games.friend.newGame(side: .white, level: level, timeControl: timeControl)
+    }
+    playing = .friend
+  }
+}
+
+/// A half-width tile under the card: a round symbol, a title and one line.
+struct HomeTile: View {
+  let symbol: String
+  let tint: Color
+  let title: String
+  let detail: String
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      VStack(alignment: .leading, spacing: 10) {
+        Image(systemName: symbol)
+          .font(.system(size: 17, weight: .bold))
+          .foregroundStyle(tint)
+          .frame(width: 40, height: 40)
+          .background(Theme.raised, in: Circle())
+        VStack(alignment: .leading, spacing: 2) {
+          Text(title).font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.ink)
+          Text(detail).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.inkMuted).lineLimit(1)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(14)
+      .background(Theme.card, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+      .softShadow(radius: 16, y: 6)
+    }
+    .buttonStyle(SoftPress())
   }
 }
 
