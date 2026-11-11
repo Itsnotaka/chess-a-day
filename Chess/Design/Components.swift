@@ -398,3 +398,59 @@ struct MorphPill: View {
     reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.78)
   }
 }
+
+/// A round button that asks for a second tap instead of a dialog: the first tap stretches it
+/// into a pill naming the action, the second does it, and it shrinks back on its own after a
+/// few seconds. For things that can't be undone, such as resigning.
+struct ConfirmCircle: View {
+  let symbol: String
+  let title: String
+  var size: CGFloat = 56
+  let action: () -> Void
+
+  @State private var armed = false
+  @State private var disarm: Task<Void, Never>?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    Button {
+      if armed {
+        disarm?.cancel()
+        withAnimation(motion) { armed = false }
+        Haptics.finish(won: false)
+        action()
+      } else {
+        Haptics.miss()
+        withAnimation(motion) { armed = true }
+        disarm?.cancel()
+        disarm = Task {
+          try? await Task.sleep(for: .seconds(3))
+          guard !Task.isCancelled else { return }
+          withAnimation(motion) { armed = false }
+        }
+      }
+    } label: {
+      HStack(spacing: 8) {
+        Image(systemName: symbol).font(.system(size: size * 0.32, weight: .bold))
+        if armed {
+          Text(title)
+            .scaledFont(17, .bold)
+            .lineLimit(1)
+            .fixedSize()
+            .transition(.opacity.combined(with: .move(edge: .leading)))
+        }
+      }
+      .foregroundStyle(armed ? Color.white : Theme.ink)
+      .padding(.horizontal, armed ? 22 : 0)
+      .frame(minWidth: size, minHeight: size)
+      .background(armed ? Theme.red : Theme.raised, in: Capsule())
+    }
+    .buttonStyle(SoftPress())
+    .accessibilityLabel(armed ? "\(title), tap again to confirm" : title)
+    .onDisappear { disarm?.cancel() }
+  }
+
+  private var motion: Animation {
+    reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.34, dampingFraction: 0.78)
+  }
+}

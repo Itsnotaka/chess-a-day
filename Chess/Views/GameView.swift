@@ -12,7 +12,6 @@ struct GameView: View {
   @AppStorage(Pref.timeControl) private var timeControl = TimeControl.none
   @AppStorage(Pref.turnBoard) private var turnBoard = false
   @AppStorage(Pref.appearance) private var appearance = Appearance.system
-  @State private var confirmResign = false
   @State private var settings = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -41,10 +40,6 @@ struct GameView: View {
     .preferredColorScheme(appearance.scheme)
     .overlay { if !reduceMotion { Celebration(result: game.result) } }
     .animation(Theme.spring, value: game.isOver)
-    .confirmationDialog(resignQuestion, isPresented: $confirmResign, titleVisibility: .visible) {
-      Button("Resign", role: .destructive) { game.resign() }
-      Button("Keep playing", role: .cancel) {}
-    }
     .sheet(isPresented: $settings) {
       SettingsSheet(start: .game)
     }
@@ -102,11 +97,12 @@ struct GameView: View {
     case .computer: game.level.name
     case .friend: "Free play"
     case .online: "vs \(game.opponentName)"
+    case .lesson: "Lesson"
     }
   }
 
-  private var resignQuestion: String {
-    game.mode == .friend ? "Resign for \(game.sideToMove == .white ? "White" : "Black")?" : "Resign this game?"
+  private var resignTitle: String {
+    game.mode == .friend ? "Resign as \(game.sideToMove == .white ? "White" : "Black")" : "Resign"
   }
 
   @ViewBuilder
@@ -136,7 +132,7 @@ struct GameView: View {
       .transition(.move(edge: .bottom).combined(with: .opacity))
     } else {
       HStack(spacing: 12) {
-        RaisedCircleButton(symbol: "flag.fill", label: "Resign", size: 56) { confirmResign = true }
+        ConfirmCircle(symbol: "flag.fill", title: resignTitle) { game.resign() }
           .disabled(!game.active)
         Spacer()
         Button {
