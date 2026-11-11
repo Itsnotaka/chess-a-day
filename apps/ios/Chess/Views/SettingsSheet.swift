@@ -430,7 +430,7 @@ private struct AboutPage: View {
       Text("Engine: Stockfish 17 (GPLv3) via ChessKitEngine (MIT). Rules: ChessKit (MIT). Pieces: cburnett, Merida (GPLv2+), Chessnut (Apache 2.0). Effects: Vortex (MIT).")
         .scaledFont(15, .medium)
         .foregroundStyle(Theme.inkMuted)
-      Text("Learn courses are lichess studies: The London System, Italian Opening and Caro-Kann Defense by LeninPerez, and The Sicilian Dragon by Sidattack243. Thank you!")
+      Text("Learn courses are lichess studies: The London System and Caro-Kann Defense by LeninPerez, and All about the Sicilian Defense by francesco_super. Thank you!")
         .scaledFont(15, .medium)
         .foregroundStyle(Theme.inkMuted)
     }

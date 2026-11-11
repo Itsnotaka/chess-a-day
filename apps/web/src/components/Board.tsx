@@ -1,8 +1,6 @@
 const files = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 
-const names: Record<string, string> = {
-  k: "king", q: "queen", r: "rook", b: "bishop", n: "knight", p: "pawn",
-};
+export type Move = { from: string; to: string };
 
 type Square = { name: string; piece: string | null };
 
@@ -18,46 +16,50 @@ function squares(fen: string): Square[] {
   });
 }
 
-function label(piece: string): string {
-  const white = piece === piece.toUpperCase();
-  return `${white ? "white" : "black"} ${names[piece.toLowerCase()]}`;
-}
-
 function asset(piece: string): string {
   const white = piece === piece.toUpperCase();
   return `/pieces/${white ? "w" : "b"}${piece.toUpperCase()}.svg`;
 }
 
-export function Board({ fen, last = [], caption }: { fen: string; last?: string[]; caption: string }) {
+function coordinates(square: string): [file: number, rank: number] {
+  return [files.indexOf(square[0] as (typeof files)[number]), Number(square[1])];
+}
+
+/** A static board with the last move marked. */
+export function Board({
+  fen,
+  move,
+  flipped = false,
+  label,
+}: {
+  fen: string;
+  move?: Move;
+  flipped?: boolean;
+  label: string;
+}) {
   const cells = squares(fen);
-  const position = cells
-    .filter((s) => s.piece)
-    .map((s) => `${label(s.piece!)} on ${s.name}`)
-    .join(", ");
+  const ordered = flipped ? cells.toReversed() : cells;
   return (
-    <figure className="m-0">
-      <div
-        role="img"
-        aria-label={`${caption}: ${position}.`}
-        className="grid aspect-square w-full grid-cols-8 overflow-hidden rounded-board border-2 border-board-edge"
-      >
-        {cells.map((square, i) => {
-          const dark = (Math.floor(i / 8) + (i % 8)) % 2 === 1;
-          return (
-            <div
-              key={square.name}
-              className={`relative ${dark ? "bg-board-dark" : "bg-board-light"}`}
-            >
-              {last.includes(square.name) && <div className="absolute inset-0 bg-board-last" />}
-              {square.piece && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={asset(square.piece)} alt="" className="relative h-full w-full" draggable={false} />
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <figcaption className="sr-only">{caption}</figcaption>
-    </figure>
+    <div
+      role="img"
+      aria-label={label}
+      className="grid aspect-square w-full grid-cols-8 overflow-hidden rounded-board border-2 border-board-edge select-none"
+    >
+      {ordered.map((square) => {
+        const [file, rank] = coordinates(square.name);
+        const dark = (file + rank) % 2 === 1;
+        return (
+          <div key={square.name} className={`relative ${dark ? "bg-board-dark" : "bg-board-light"}`}>
+            {(move?.from === square.name || move?.to === square.name) && (
+              <div className="absolute inset-0 bg-board-last" />
+            )}
+            {square.piece && (
+              // oxlint-disable-next-line nextjs/no-img-element -- tiny static SVGs; next/image adds nothing here
+              <img src={asset(square.piece)} alt="" draggable={false} className="relative h-full w-full" />
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }

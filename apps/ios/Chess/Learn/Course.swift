@@ -57,11 +57,15 @@ enum Courses {
     let side: Piece.Color
     let author: String
     let study: String
+    var skip: Set<String> = []
 
     func load() -> Course? {
       guard let url = Bundle.main.url(forResource: file, withExtension: "pgn"),
             let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-      let lessons = Study.chapters(in: text).compactMap { $0.lesson(course: file) }
+      let lessons = Study.chapters(in: text)
+        .filter { chapter in !skip.contains { chapter.headers["ChapterURL"]?.hasSuffix("/\($0)") == true } }
+        .compactMap { $0.lesson(course: file) }
+        .filter { $0.you == side }
       guard !lessons.isEmpty else { return nil }
       return Course(id: file, title: title, summary: summary, symbol: symbol, side: side, author: author,
                     source: URL(string: "https://lichess.org/study/\(study)")!, lessons: lessons)
@@ -71,10 +75,9 @@ enum Courses {
   private static let catalogue = [
     Source(file: "london", title: "London System", summary: "One calm setup for White against almost anything.",
            symbol: "building.columns.fill", side: .white, author: "LeninPerez", study: "vIEKP8t3"),
-    Source(file: "italian", title: "Italian Game", summary: "Quick development and a bishop aimed at f7.",
-           symbol: "flag.fill", side: .white, author: "LeninPerez", study: "vJsZScnC"),
-    Source(file: "dragon", title: "Sicilian Dragon", summary: "Black's sharpest answer to 1.e4, with a fianchetto bishop.",
-           symbol: "flame.fill", side: .black, author: "Sidattack243", study: "pCsPvGUQ"),
+    // The two later Closed Sicilian chapters are opening-explorer trees: transpositions and game references, no teaching.
+    Source(file: "sicilian", title: "Sicilian Defence", summary: "Black's fighting answer to 1.e4: the Dragon, the Najdorf and more.",
+           symbol: "flame.fill", side: .black, author: "francesco_super", study: "8c8bmUfy", skip: ["tFH530Ea", "k5gWu5u7"]),
     Source(file: "carokann", title: "Caro-Kann Defence", summary: "A rock-solid answer to 1.e4.",
            symbol: "shield.fill", side: .black, author: "LeninPerez", study: "jtlLwUvh"),
   ]
@@ -210,12 +213,15 @@ extension Study.Chapter {
     var steps: [LessonStep] = []
     var pending = Study.read(intro)
     var mover = start.sideToMove
+    var ply = (start.clock.fullmoves - 1) * 2 + (mover == .black ? 1 : 0)
     for node in line {
       let after = Study.read(node.comments)
       if style == .watch {
         if !pending.text.isEmpty || !pending.shapes.isEmpty {
           steps.append(LessonStep(kind: .say, prompt: pending.text, promptShapes: pending.shapes))
         }
+        steps += node.variations.filter { $0.count > 1 || $0.first.map { !Study.read($0.comments).text.isEmpty } == true }
+          .map { LessonStep(kind: .say, prompt: Self.sideline($0, ply: ply, you: mover == you)) }
         steps.append(LessonStep(kind: .watch, san: node.san, why: after.text, whyShapes: after.shapes))
         pending = ("", Shapes())
       } else if mover == you {
@@ -232,15 +238,38 @@ extension Study.Chapter {
         pending = after
       }
       mover = mover.opposite
+      ply += 1
     }
     if !pending.text.isEmpty || !pending.shapes.isEmpty {
       steps.append(LessonStep(kind: .say, prompt: pending.text, promptShapes: pending.shapes))
     }
     guard !steps.isEmpty else { return nil }
+    if style == .watch, !steps.contains(where: { !$0.prompt.isEmpty || !$0.why.isEmpty }) { return nil }
 
     let name = headers["ChapterName"] ?? "Lesson"
     let chapterID = headers["ChapterURL"].flatMap { URL(string: $0)?.lastPathComponent } ?? name
     return Lesson(id: "\(course)/\(chapterID)", title: Self.tidy(name), you: you, fen: fen, style: style, steps: steps)
+  }
+
+  /// A study's alternative to the move about to be shown, written out with its notes:
+  /// "If you play 6...Ng4 instead: Big blunder" and the rest of the line under it.
+  private static func sideline(_ line: [Study.Node], ply: Int, you: Bool) -> String {
+    let player = you ? "you play" : ply.isMultiple(of: 2) ? "White plays" : "Black plays"
+    var text = ""
+    var numbered = true
+    for (offset, node) in line.prefix(12).enumerated() {
+      let at = ply + offset
+      let number = at.isMultiple(of: 2) ? "\(at / 2 + 1)." : numbered ? "\(at / 2 + 1)..." : ""
+      let note = Study.read(node.comments).text
+      if offset == 0 {
+        text = "If \(player) \(number)\(node.san) instead:" + (note.isEmpty ? "" : " \(note)") + "\n"
+      } else {
+        text += (text.hasSuffix("\n") ? "" : " ") + number + node.san + (note.isEmpty ? "" : ": \(note)\n")
+      }
+      numbered = offset == 0 || !note.isEmpty
+    }
+    text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    return line.count > 12 ? "\(text) …" : text
   }
 
   private static func tidy(_ name: String) -> String {

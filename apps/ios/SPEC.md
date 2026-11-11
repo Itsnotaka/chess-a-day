@@ -88,8 +88,8 @@ No placement test. The level can be changed at any time.
 
 ## Learn
 
-- Four courses, each a public lichess study bundled as PGN (`Chess/Learn/Courses`, refreshed by `tools/fetch-courses.sh`): as White, **London System** and **Italian Game** (LeninPerez); as Black, **Sicilian Dragon** (Sidattack243) and **Caro-Kann Defence** (LeninPerez). Authors are credited in the course page and About.
-- A lichess **gamebook** chapter becomes a played lesson: the comment after the opponent's move is the question for your move, the comment after your move says why, a sideline to your move is the answer to that particular wrong move, and `[%cal]` arrows and `[%csl]` circles are drawn in the author's colours. Other chapters (up to 30 plies) become watched lessons; diagrams without kings and long example games are left out.
+- Three courses, each a public lichess study bundled as PGN (`Chess/Learn/Courses`, refreshed by `tools/fetch-courses.sh`): as White, **London System** (LeninPerez); as Black, **Sicilian Defence** (francesco_super) and **Caro-Kann Defence** (LeninPerez). A course keeps only the chapters played from its side, minus any it lists as skipped. Authors are credited in the course page and About.
+- A lichess **gamebook** chapter becomes a played lesson: the comment after the opponent's move is the question for your move, the comment after your move says why, a sideline to your move is the answer to that particular wrong move, and `[%cal]` arrows and `[%csl]` circles are drawn in the author's colours. Other chapters (up to 30 plies) become watched lessons: each move shows its comment, and before a move every sideline the author gave there is written out with its notes ("White could also play: …", up to 12 plies). Diagrams without kings, long example games and watched chapters with no words are left out.
 - The board accepts only the taught move; a wrong one settles back, the coach card shakes, and a second miss shows the move. Hint shows it at once.
 - **Practice** replays a learned lesson with no words or arrows; wrong moves and hints cost stars (3, 2 or 1). Progress is kept per lesson.
 - Every line was checked move by move, sidelines included, before bundling.
@@ -125,7 +125,7 @@ Back button and a centred title:
 - **App Settings**: Light / Auto / Dark segmented pill · App Icon picker (`setAlternateIconName`) · Haptic Feedback switch · Sounds switch.
 - **Game Settings**: board (Stone, Sand, Sage, Sky, Lilac) · pieces (Classic cburnett, Merida, Chessnut) · clock · coordinates · show legal moves · always promote to queen · turn board in free play. The board and pieces apply everywhere a board is drawn.
 - **Notifications**: daily reminder on/off and its hour.
-- **About**: GPLv3; Stockfish 17 (GPLv3), ChessKit and ChessKitEngine (MIT), cburnett and Merida (GPLv2+), Chessnut (Apache 2.0), Vortex (MIT). Learn credits: The London System, Italian Opening and Caro-Kann Defense by LeninPerez; The Sicilian Dragon by Sidattack243.
+- **About**: GPLv3; Stockfish 17 (GPLv3), ChessKit and ChessKitEngine (MIT), cburnett and Merida (GPLv2+), Chessnut (Apache 2.0), Vortex (MIT). Learn credits: The London System and Caro-Kann Defense by LeninPerez; All about the Sicilian Defense by francesco_super.
 
 ## Stats and awards (after v1's core loop)
 

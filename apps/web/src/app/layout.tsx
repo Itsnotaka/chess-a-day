@@ -31,7 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="flex min-h-dvh flex-col">
         <a
           href="#main"
-          className="sr-only rounded-full bg-ink px-4 py-2 font-semibold text-on-ink focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-10"
+          className="sr-only rounded-full bg-ink px-4 py-2 font-semibold text-on-ink focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-10"
         >
           Skip to content
         </a>

@@ -22,6 +22,10 @@
   --board-dark: #dcdcdc;
   --board-last: rgb(38 38 38 / 0.13);
   --board-edge: #262626;
+
+  --face: #1f1f1f;
+  --blush: #ff9fbf;
+  --grid-strength: 0.24;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,6 +49,8 @@
     --board-dark: #787878;
     --board-last: rgb(255 255 255 / 0.18);
     --board-edge: #d9d9d9;
+
+    --grid-strength: 0.16;
   }
 }
 
@@ -65,12 +71,33 @@
   --color-board-dark: var(--board-dark);
   --color-board-last: var(--board-last);
   --color-board-edge: var(--board-edge);
+  --color-face: var(--face);
+  --color-blush: var(--blush);
 
   --font-rounded: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
   --radius-card: 36px;
   --radius-row: 20px;
   --radius-board: 12px;
   --shadow-card: 0 10px 30px var(--shadow);
+
+  /* One type scale, in rem so the reader's text size applies. */
+  --text-display: clamp(2.75rem, 7.5vw, 5rem);
+  --text-display--line-height: 0.98;
+  --text-display--letter-spacing: -0.035em;
+  --text-title: clamp(2rem, 4.5vw, 2.75rem);
+  --text-title--line-height: 1.05;
+  --text-title--letter-spacing: -0.025em;
+  --text-lead: clamp(1.15rem, 2.2vw, 1.35rem);
+  --text-lead--line-height: 1.35;
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.25;
+  --text-heading--letter-spacing: -0.01em;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.5;
+  --text-label: 0.9375rem;
+  --text-label--line-height: 1.35;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.55;
 }
 
 html {
@@ -78,7 +105,9 @@ html {
   color: var(--ink);
   font-family: var(--font-rounded);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
 }
 
 ::selection {
@@ -98,18 +127,82 @@ html {
   color: transparent;
 }
 
+/* Every press gives way a little, like SoftPress in the app. */
 .press {
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms ease-out;
+  transition:
+    scale 150ms ease-out,
+    opacity 150ms ease-out;
 }
 .press:active {
-  transform: scale(0.95);
+  scale: 0.96;
   opacity: 0.85;
 }
 
+/* The hero's ground: a chess grid washed in the five level colours, fading out at the edges. */
+.chess-grid {
+  background: linear-gradient(115deg, var(--teal), var(--purple) 35%, var(--red) 65%, var(--brown));
+  opacity: var(--grid-strength);
+  -webkit-mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 50% 0 / 4.5rem 4.5rem;
+  mask: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 50% 0 / 4.5rem 4.5rem;
+}
+.chess-grid-fade {
+  -webkit-mask: radial-gradient(ellipse 60% 55% at 50% 45%, #000 30%, transparent 100%);
+  mask: radial-gradient(ellipse 60% 55% at 50% 45%, #000 30%, transparent 100%);
+}
+
+/* The cast says hello once, then settles down. Nothing loops. */
+@media (prefers-reduced-motion: no-preference) {
+  .buddy {
+    animation:
+      buddy-in 600ms cubic-bezier(0.34, 1.4, 0.64, 1) var(--delay, 0ms) both,
+      buddy-bob 1800ms ease-in-out calc(var(--delay, 0ms) + 600ms) 2;
+  }
+  .buddy-eyes {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: buddy-blink 3200ms ease-in-out calc(var(--delay, 0ms) + 900ms) 2;
+  }
+  .buddy-wave {
+    animation: buddy-wave 420ms ease-in-out 900ms 6 alternate both;
+  }
+}
+
+@keyframes buddy-in {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
+@keyframes buddy-bob {
+  50% {
+    translate: 0 -6%;
+  }
+}
+@keyframes buddy-blink {
+  0%,
+  44%,
+  52%,
+  100% {
+    scale: 1 1;
+  }
+  48% {
+    scale: 1 0.1;
+  }
+}
+@keyframes buddy-wave {
+  from {
+    rotate: -10deg;
+  }
+  to {
+    rotate: 16deg;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .press,
-  .press:active {
+  .press {
     transition: opacity 100ms ease-out;
-    transform: none;
+  }
+  .press:active {
+    scale: none;
   }
 }

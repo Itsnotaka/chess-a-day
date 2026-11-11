@@ -26,14 +26,16 @@ Run every command below **from `apps/ios/`** (`cd apps/ios` from the repository 
 
 ## Web build and run
 
-- From the repository root: `pnpm install`, `pnpm --filter web dev`, `pnpm --filter web typecheck`, `pnpm --filter web lint`.
-- Root `pnpm build`, `pnpm lint` and `pnpm typecheck` delegate to Turbo; they only operate on web tasks, never Swift.
+- From the repository root: `pnpm install`, `pnpm --filter web dev`, `pnpm --filter web typecheck`, `pnpm --filter web lint`, `pnpm --filter web format`.
+- Tooling: oxlint (`.oxlintrc.json`), oxfmt (`.oxfmtrc.json`, sorts Tailwind classes) and tsrs for type checking. No ESLint or Prettier.
+- Root `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm format` and `pnpm format:check` delegate to Turbo; they only operate on web tasks, never Swift.
 - `pnpm --filter web build` builds Next.js; `pnpm --filter web start` serves that build.
 - Vercel: Root Directory **`apps/web`**, framework **Next.js**, Node.js **26.x** (engines `>=26`, `.node-version`). Enable access to files outside the Root Directory. Set `ENABLE_EXPERIMENTAL_COREPACK=1`, install command `cd ../.. && corepack pnpm install --frozen-lockfile`, build command `pnpm build`, default output directory. The root `packageManager` pins pnpm; no `vercel.json` is needed. Vercel supplies `VERCEL_PROJECT_PRODUCTION_URL` for metadata; local metadata falls back to `http://localhost:3000`.
 
 ## Web rules
 
 - TypeScript strict, React Server Components by default, App Router, Tailwind CSS v4. No external font downloads.
+- Interactive primitives come from Base UI (`@base-ui/react`), styled with Tailwind. Its Tabs and Accordion render from server components; anything holding state is a small `"use client"` island.
 - Colours use semantic CSS variables in `apps/web/src/app/globals.css`, with light and dark schemes. Rounded system type, 36 px cards and pill controls match the app.
 - Use semantic HTML, visible keyboard focus, accessible names and at least 44 px control targets. Keep the layout usable at 360 px and with zoomed text.
 - Keep motion optional and minimal; respect `prefers-reduced-motion`. No analytics, ads, tracking or invented product claims.
