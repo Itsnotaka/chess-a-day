@@ -7,6 +7,11 @@ cd "$(dirname "$0")/.."
 DEVICE="${1:-O2}"
 UDID=$(xcrun devicectl list devices 2>/dev/null | awk -v d="$DEVICE" '$0 ~ d { for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-F]{8}-/) { print $i; exit } }')
 [ -n "$UDID" ] || { echo "No device matching '$DEVICE'"; exit 1; }
+if xcrun devicectl list devices 2>/dev/null | grep "$UDID" | grep -q unavailable; then
+  echo "$DEVICE is paired but not reachable. Unlock it and plug it in, or turn on"
+  echo "Xcode > Window > Devices and Simulators > $DEVICE > Connect via network (same Wi-Fi)."
+  exit 1
+fi
 xcodegen generate --quiet
 xcodebuild -project Chess.xcodeproj -scheme Chess -configuration Release \
   -destination "id=$UDID" -derivedDataPath build -allowProvisioningUpdates -quiet build
