@@ -8,6 +8,7 @@ struct OnboardingView: View {
   @AppStorage(Pref.reminderHour) private var reminderHour = 9
   @State private var step = 0
   @State private var forward = true
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     ZStack(alignment: .bottom) {
@@ -22,7 +23,7 @@ struct OnboardingView: View {
           }
         }
         .id(step)
-        .transition(.asymmetric(
+        .transition(reduceMotion ? .opacity : .asymmetric(
           insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
           removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
         .frame(maxHeight: .infinity)
@@ -32,7 +33,7 @@ struct OnboardingView: View {
       .padding(.top, 28)
       .padding(.bottom, 22)
       .frame(maxWidth: .infinity)
-      .frame(height: step == 1 ? 640 : 560)
+      .frame(minHeight: step == 1 ? 640 : 560)
       .background(Theme.card, in: RoundedRectangle(cornerRadius: 44, style: .continuous))
       .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
       .softShadow(radius: 30, y: 12)
@@ -44,9 +45,9 @@ struct OnboardingView: View {
 
   private var welcome: some View {
     VStack(spacing: 12) {
-      Text("Chess").font(.system(size: 40, weight: .heavy)).tracking(-1.2)
+      Text("Chess").scaledFont(40, .heavy).tracking(-1.2)
       Text("One calm game a day. Play the computer, solve a puzzle, keep your streak.")
-        .font(.system(size: 18, weight: .medium))
+        .scaledFont(18, .medium)
         .foregroundStyle(Theme.inkMuted)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 300)
@@ -55,9 +56,16 @@ struct OnboardingView: View {
   }
 
   private var levels: some View {
+    ScrollView {
+      levelList
+    }
+    .scrollBounceBehavior(.basedOnSize)
+  }
+
+  private var levelList: some View {
     VStack(spacing: 10) {
       Text("Select your level")
-        .font(.system(size: 24, weight: .heavy))
+        .scaledFont(24, .heavy)
         .foregroundStyle(Theme.ink)
         .padding(.bottom, 6)
       ForEach(Level.allCases) { option in
@@ -72,12 +80,12 @@ struct OnboardingView: View {
   private var nudge: some View {
     VStack(spacing: 14) {
       Image(systemName: "bell.badge.fill")
-        .font(.system(size: 40, weight: .bold))
+        .scaledFont(40, .bold)
         .foregroundStyle(level.tint)
-        .symbolEffect(.bounce, value: step)
-      Text("A daily nudge?").font(.system(size: 28, weight: .heavy)).foregroundStyle(Theme.ink)
+        .symbolEffect(.bounce, value: reduceMotion ? 0 : step)
+      Text("A daily nudge?").scaledFont(28, .heavy).foregroundStyle(Theme.ink)
       Text("One reminder a day, when your game and puzzle are waiting.")
-        .font(.system(size: 17, weight: .medium))
+        .scaledFont(17, .medium)
         .foregroundStyle(Theme.inkMuted)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 300)
@@ -104,7 +112,7 @@ struct OnboardingView: View {
         VStack(spacing: 6) {
           InkPill(title: "Remind me", fullWidth: true) { finish(remind: true) }
           Button("Not now") { finish(remind: false) }
-            .font(.system(size: 16, weight: .semibold))
+            .scaledFont(16, .semibold)
             .foregroundStyle(Theme.inkMuted)
             .frame(height: 36)
         }
@@ -113,10 +121,16 @@ struct OnboardingView: View {
   }
 
   private func finish(remind: Bool) {
-    reminder = remind
-    if remind { Reminders.schedule(hour: reminderHour) }
-    onboarded = true
     Haptics.finish(won: true)
+    guard remind else {
+      reminder = false
+      onboarded = true
+      return
+    }
+    Task {
+      reminder = await Reminders.enable(hour: reminderHour)
+      onboarded = true
+    }
   }
 }
 

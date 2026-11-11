@@ -24,6 +24,9 @@ packages:
   ChessKitEngine:
     url: https://github.com/chesskit-app/chesskit-engine
     from: 0.7.0
+  Vortex:
+    url: https://github.com/twostraws/Vortex
+    from: 1.0.4
 
 targets:
   Chess:
@@ -35,6 +38,7 @@ targets:
     dependencies:
       - package: ChessKit
       - package: ChessKitEngine
+      - package: Vortex
     info:
       path: Chess/Info.plist
       properties:
@@ -48,4 +52,5 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.workgyver.chess
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Night AppIcon-Mono"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

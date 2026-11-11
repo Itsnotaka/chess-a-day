@@ -1,5 +1,6 @@
 import ChessKit
 import SwiftUI
+import Vortex
 
 /// A game against the computer, full screen. Top to bottom: header, the computer, the board,
 /// you, the moves so far, and the bar with Resign and Flip (the result card when it ends).
@@ -12,6 +13,7 @@ struct GameView: View {
   @AppStorage(Pref.turnBoard) private var turnBoard = false
   @State private var confirmResign = false
   @State private var settings = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     @Bindable var game = game
@@ -31,9 +33,11 @@ struct GameView: View {
       }
       .padding(.horizontal, 16)
       .padding(.bottom, 4)
+      .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
       .onChange(of: timeline.date) { _, now in game.checkFlag(at: now) }
     }
     .background(Theme.card.ignoresSafeArea())
+    .overlay { if !reduceMotion { Celebration(result: game.result) } }
     .animation(Theme.spring, value: game.isOver)
     .confirmationDialog(resignQuestion, isPresented: $confirmResign, titleVisibility: .visible) {
       Button("Resign", role: .destructive) { game.resign() }
@@ -77,12 +81,12 @@ struct GameView: View {
       Spacer()
       VStack(spacing: 2) {
         Text(game.mode == .friend ? "Free play" : game.level.name)
-          .font(.system(size: 17, weight: .bold))
+          .scaledFont(17, .bold)
           .foregroundStyle(Theme.ink)
         HStack(spacing: 5) {
-          Image(systemName: "clock").font(.system(size: 12, weight: .bold))
+          Image(systemName: "clock").scaledFont(12, .bold)
           Text(Self.clock(now.timeIntervalSince(game.saved?.startedAt ?? now)))
-            .font(.system(size: 15, weight: .semibold)).monospacedDigit()
+            .scaledFont(15, .semibold).monospacedDigit()
         }
         .foregroundStyle(Theme.inkMuted)
       }
@@ -101,9 +105,9 @@ struct GameView: View {
     if let result = game.result {
       VStack(spacing: 14) {
         VStack(spacing: 4) {
-          Text(result.title).font(.system(size: 30, weight: .heavy))
+          Text(result.title).scaledFont(30, .heavy)
           Text("\(game.reason) · \(game.moveCount) \(game.moveCount == 1 ? "move" : "moves")")
-            .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.inkMuted)
+            .scaledFont(15, .semibold).foregroundStyle(Theme.inkMuted)
         }
         .foregroundStyle(Theme.ink)
         HStack(spacing: 10) {
@@ -127,8 +131,8 @@ struct GameView: View {
           Haptics.selection()
         } label: {
           HStack(spacing: 8) {
-            Image(systemName: "arrow.up.arrow.down").font(.system(size: 15, weight: .bold))
-            Text("Flip board").font(.system(size: 17, weight: .bold))
+            Image(systemName: "arrow.up.arrow.down").scaledFont(15, .bold)
+            Text("Flip board").scaledFont(17, .bold)
           }
           .foregroundStyle(Theme.ink)
           .padding(.horizontal, 22)
@@ -150,6 +154,8 @@ struct GameView: View {
 /// a badge saying whose move it is.
 struct PlayerRow: View {
   @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var pulse = false
   let name: String
   let detail: String
   let symbol: String
@@ -162,14 +168,14 @@ struct PlayerRow: View {
   var body: some View {
     HStack(spacing: 12) {
       Image(systemName: symbol)
-        .font(.system(size: 17, weight: .bold))
+        .scaledFont(17, .bold)
         .foregroundStyle(tint)
         .frame(width: 44, height: 44)
         .background(Theme.raised, in: Circle())
       VStack(alignment: .leading, spacing: 3) {
         HStack(spacing: 6) {
-          Text(name).font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.ink)
-          Text(detail).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.inkMuted)
+          Text(name).scaledFont(17, .bold).foregroundStyle(Theme.ink)
+          Text(detail).scaledFont(15, .semibold).foregroundStyle(Theme.inkMuted)
         }
         if !taken.isEmpty {
           HStack(spacing: -5) {
@@ -182,22 +188,28 @@ struct PlayerRow: View {
         }
       }
       Spacer(minLength: 8)
+      if let status {
+        Text(status)
+          .scaledFont(clock == nil ? 15 : 13, .bold)
+          .foregroundStyle(clock == nil ? Theme.onInk : Theme.ink)
+          .padding(.horizontal, 12)
+          .padding(.vertical, 6)
+          .frame(minHeight: clock == nil ? 34 : 30)
+          .background(clock == nil ? Theme.ink : Theme.raised, in: Capsule())
+          .opacity(pulse ? 0.55 : 1)
+          .animation(status == "Thinking…" && !reduceMotion ? .easeInOut(duration: 0.8).repeatForever() : .default, value: pulse)
+          .onAppear { pulse = status == "Thinking…" && !reduceMotion }
+          .onChange(of: status) { _, now in pulse = now == "Thinking…" && !reduceMotion }
+          .transition(.scale(scale: 0.8).combined(with: .opacity))
+      }
       if let clock {
         Text(GameView.clock(clock))
-          .font(.system(size: 20, weight: .bold)).monospacedDigit()
+          .scaledFont(20, .bold).monospacedDigit()
           .foregroundStyle(active ? Theme.onInk : Theme.ink)
           .padding(.horizontal, 14)
-          .frame(height: 40)
+          .frame(minHeight: 40)
           .background(active ? Theme.ink : Theme.raised, in: Capsule())
-      } else if let status {
-        Text(status)
-          .font(.system(size: 15, weight: .bold))
-          .foregroundStyle(Theme.onInk)
-          .padding(.horizontal, 14)
-          .frame(height: 34)
-          .background(Theme.ink, in: Capsule())
-          .phaseAnimator(status == "Thinking…" ? [1, 0.55] : [1]) { view, phase in view.opacity(phase) } animation: { _ in .easeInOut(duration: 0.8) }
-          .transition(.scale(scale: 0.8).combined(with: .opacity))
+          .accessibilityLabel("\(name)'s clock, \(GameView.clock(clock))")
       }
     }
     .frame(minHeight: 44)
@@ -217,7 +229,7 @@ struct MoveList: View {
         HStack(spacing: 6) {
           if moves.isEmpty {
             Text("Moves appear here")
-              .font(.system(size: 15, weight: .semibold))
+              .scaledFont(15, .semibold)
               .foregroundStyle(Theme.inkMuted)
               .padding(.horizontal, 12)
           }
@@ -230,7 +242,7 @@ struct MoveList: View {
             .id(index)
           }
         }
-        .font(.system(size: 15, weight: .bold))
+        .scaledFont(15, .bold)
         .padding(.horizontal, 10)
       }
       .frame(height: 44)
@@ -248,5 +260,30 @@ struct MoveList: View {
       .padding(.horizontal, 8)
       .frame(height: 30)
       .background(latest ? Theme.ink : .clear, in: Capsule())
+  }
+}
+
+/// Confetti in the level colours when the game is won.
+private struct Celebration: View {
+  let result: GameResult?
+
+  var body: some View {
+    VortexViewReader { proxy in
+      VortexView(.confetti.makeUniqueCopy()) {
+        ForEach(Array([Theme.teal, Theme.purple, Theme.red, Theme.brown, Theme.blue].enumerated()), id: \.offset) { index, color in
+          RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12).tag("square")
+            .id("square-\(index)")
+          Circle().fill(color).frame(width: 12).tag("circle").id("circle-\(index)")
+        }
+      }
+      .onChange(of: result) { _, result in
+        switch result {
+        case .win?, .winner?: proxy.burst()
+        default: break
+        }
+      }
+    }
+    .allowsHitTesting(false)
+    .ignoresSafeArea()
   }
 }

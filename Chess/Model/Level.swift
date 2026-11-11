@@ -156,5 +156,4 @@ enum Pref {
   static let pieceSet = "pieceSet"
   static let reminder = "reminder"
   static let reminderHour = "reminderHour"
-  static let appIcon = "appIcon"
 }

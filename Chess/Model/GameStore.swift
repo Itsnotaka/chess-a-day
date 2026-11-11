@@ -77,6 +77,8 @@ final class GameStore {
     url = Storage.file(mode == .computer ? "game.json" : "free-play.json")
     saved = Storage.read(SavedGame.self, from: url)
     rebuild()
+    // A relaunch can land between your saved move and the computer's reply: resume it.
+    replyIfNeeded()
   }
 
   // MARK: State the views read
@@ -215,13 +217,18 @@ final class GameStore {
     finishIfOver()
   }
 
-  /// Called by the clock; ends the game when a running side reaches zero.
+  /// Called by the clock view; `play` checks the same before accepting any move.
   func checkFlag(at now: Date) {
-    guard active, var saved else { return }
-    let side = board.position.sideToMove
-    guard let left = timeLeft(side, at: now), left <= 0 else { return }
+    guard active, let left = timeLeft(sideToMove, at: now), left <= 0 else { return }
+    flag(sideToMove)
+  }
+
+  private func flag(_ side: Piece.Color) {
+    guard var saved else { return }
     saved.ending = .flagged(side)
     self.saved = saved
+    selected = nil
+    promotion = nil
     finishIfOver()
   }
 
@@ -245,14 +252,19 @@ final class GameStore {
     var trial = board
     guard Self.apply(uci, to: &trial) != nil else { return }
     if saved.timeControl.base != nil, !saved.moves.isEmpty {
-      let spent = now.timeIntervalSince(saved.lastMoveAt) - Double(saved.timeControl.increment.components.seconds)
-      if mover == .white { saved.whiteLeft -= spent } else { saved.blackLeft -= spent }
+      let spent = now.timeIntervalSince(saved.lastMoveAt)
+      let left = (mover == .white ? saved.whiteLeft : saved.blackLeft) - spent
+      // A move made after the flag fell loses on time and earns no increment.
+      guard left > 0 else { return flag(mover) }
+      let after = left + Double(saved.timeControl.increment.components.seconds)
+      if mover == .white { saved.whiteLeft = after } else { saved.blackLeft = after }
     }
     saved.moves.append(uci)
     saved.lastMoveAt = now
     self.saved = saved
     rebuild()
     Haptics.move(capture: lastCapture)
+    Sounds.play(lastCapture ? .capture : .move)
     finishIfOver()
     replyIfNeeded()
   }
@@ -268,7 +280,7 @@ final class GameStore {
       let elapsed = ContinuousClock.now - started
       if elapsed < level.minimumThink { try? await Task.sleep(for: level.minimumThink - elapsed) }
       thinking = false
-      guard let move, self.board.position.fen == fen else { return }
+      guard let move, self.board.position.fen == fen, active else { return }
       play(move)
     }
   }
@@ -279,8 +291,11 @@ final class GameStore {
     saved.recorded = true
     self.saved = saved
     persist()
-    if mode == .computer { history.mark(DayKey.of(.now), game: true) }
+    if mode == .computer, let result {
+      history.record(GameRecord(date: .now, level: saved.level, result: result == .win ? .win : result == .loss ? .loss : .draw, moves: moveCount))
+    }
     Haptics.finish(won: result != .loss)
+    Sounds.play(.end)
   }
 
   private func persist() {
@@ -370,6 +385,17 @@ extension Piece.Kind {
     case .bishop, .knight: 3
     case .pawn: 1
     case .king: 0
+    }
+  }
+
+  var name: String {
+    switch self {
+    case .king: "king"
+    case .queen: "queen"
+    case .rook: "rook"
+    case .bishop: "bishop"
+    case .knight: "knight"
+    case .pawn: "pawn"
     }
   }
 

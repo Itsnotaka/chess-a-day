@@ -1,7 +1,7 @@
 import ChessKit
 import SwiftUI
 
-/// Home: the round buttons, today's card with Play, the daily puzzle row and the day strip.
+/// Home: the round buttons, the day's card with Play, Free play, and the day strip.
 struct HomeView: View {
   @Environment(GameStore.self) private var game
   @Environment(Games.self) private var games
@@ -13,23 +13,41 @@ struct HomeView: View {
   @State private var day = Date.now
   @State private var settings: SettingsPage?
   @State private var playing: GameMode?
+  @State private var showingStreak = false
+  @State private var showingStats = false
+
+  private var isToday: Bool { Calendar.current.isDateInToday(day) }
 
   var body: some View {
     VStack(spacing: 18) {
       topBar
       card
-      HStack(spacing: 12) {
-        HomeTile(symbol: "puzzlepiece.fill", tint: level.tint, title: "Daily puzzle", detail: "\(level.name) · one a day") { settings = .root }
-        HomeTile(symbol: "person.2.fill", tint: Theme.ink, title: "Free play",
-                 detail: games.friend.active ? "Continue game" : "Two players") { playFriend() }
-      }
+      HomeRow(symbol: "person.2.fill", title: "Free play",
+              detail: games.friend.active ? "A game in progress" : "Two players, one phone",
+              action: games.friend.active ? "Continue" : "Play") { playFriend() }
       DayStrip(selected: $day)
     }
     .padding(.horizontal, 20)
     .padding(.top, 8)
+    // One screen with no scrolling: it grows to the largest standard size; sheets go further.
+    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     .background(Theme.ground.ignoresSafeArea())
     .sheet(item: $settings) { page in
       SettingsSheet(start: page)
+        .presentationDetents([.fraction(0.74), .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(Theme.Radius.card)
+        .presentationBackground(Theme.card)
+    }
+    .sheet(isPresented: $showingStreak) {
+      StreakSheet()
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(Theme.Radius.card)
+        .presentationBackground(Theme.card)
+    }
+    .sheet(isPresented: $showingStats) {
+      StatsSheet()
         .presentationDetents([.fraction(0.74), .large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(Theme.Radius.card)
@@ -54,11 +72,9 @@ struct HomeView: View {
   private var topBar: some View {
     HStack(spacing: 10) {
       CircleIconButton(symbol: level.symbol, label: "Level: \(level.name)", tint: level.tint) { settings = .difficulty }
-      // Streak, Awards and Stats get their own screens next; until then they only answer the press.
-      CircleIconButton(symbol: "laurel.leading", label: "\(history.streak())-day streak") { Haptics.selection() }
-      CircleIconButton(symbol: "trophy.fill", label: "Awards") { Haptics.selection() }
+      CircleIconButton(symbol: "laurel.leading", label: "Streak, \(history.streak()) days") { showingStreak = true }
       Spacer()
-      CircleIconButton(symbol: "chart.bar.fill", label: "Stats") { Haptics.selection() }
+      CircleIconButton(symbol: "chart.bar.fill", label: "Stats") { showingStats = true }
       CircleIconButton(symbol: "gearshape.fill", label: "Settings") { settings = .root }
     }
   }
@@ -71,7 +87,7 @@ struct HomeView: View {
         Text(day.formatted(.dateTime.month(.wide).day()))
           .foregroundStyle(Theme.ink)
       }
-      .font(.system(size: 46, weight: .heavy))
+      .scaledFont(46, .heavy)
       .tracking(-1.8)
       .lineLimit(1)
       .minimumScaleFactor(0.7)
@@ -79,7 +95,7 @@ struct HomeView: View {
 
       HStack(spacing: 8) {
         Circle().fill(game.active ? Theme.live : Theme.inkFaint).frame(width: 9, height: 9)
-        Text(status).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.inkMuted)
+        Text(status).scaledFont(15, .semibold).foregroundStyle(Theme.inkMuted)
       }
       .padding(.top, 12)
 
@@ -89,14 +105,22 @@ struct HomeView: View {
         MiniBoard(pieces: game.pieces, flipped: game.you == .black)
           .rotationEffect(.degrees(-2))
           .frame(maxWidth: 290)
-        InkPill(title: game.active ? "Continue" : "Play", symbol: "play.fill") { play() }
+        if isToday {
+          InkPill(title: game.active ? "Continue" : "Play", symbol: "play.fill") { play() }
+        } else {
+          InkPill(title: "Back to today", symbol: "arrow.uturn.backward") {
+            withAnimation(Theme.spring) { day = .now }
+          }
+        }
       }
 
       Spacer(minLength: 16)
 
-      if game.active {
+      if !isToday {
+        Color.clear.frame(height: 48)
+      } else if game.active {
         Text("Playing as \(game.you == .white ? "White" : "Black") · \(game.level.name)")
-          .font(.system(size: 15, weight: .bold))
+          .scaledFont(15, .bold)
           .foregroundStyle(Theme.ink)
           .frame(height: 48)
       } else {
@@ -112,6 +136,12 @@ struct HomeView: View {
   }
 
   private var status: String {
+    if !isToday {
+      let played = history.games.filter { Calendar.current.isDate($0.date, inSameDayAs: day) }
+      guard !played.isEmpty else { return history.days[DayKey.of(day)]?.puzzle == true ? "Puzzle solved" : "Nothing played" }
+      let wins = played.filter { $0.result == .win }.count
+      return "\(played.count) \(played.count == 1 ? "game" : "games") · \(wins) won"
+    }
     if game.active { return game.yourTurn ? "Game in progress · your move" : "Game in progress" }
     if history.days[DayKey.of(day)]?.game == true { return "Played today · \(level.name)" }
     return "\(level.name) · \(timeControl.name)"
@@ -134,33 +164,42 @@ struct HomeView: View {
   }
 }
 
-/// A half-width tile under the card: a round symbol, a title and one line.
-struct HomeTile: View {
+/// A full-width row under the card: a round symbol, a title and a line, and its action.
+struct HomeRow: View {
   let symbol: String
-  let tint: Color
   let title: String
   let detail: String
-  let action: () -> Void
+  let action: String
+  let perform: () -> Void
 
   var body: some View {
-    Button(action: action) {
-      VStack(alignment: .leading, spacing: 10) {
+    Button(action: perform) {
+      HStack(spacing: 14) {
         Image(systemName: symbol)
-          .font(.system(size: 17, weight: .bold))
-          .foregroundStyle(tint)
-          .frame(width: 40, height: 40)
+          .scaledFont(17, .bold)
+          .foregroundStyle(Theme.ink)
+          .frame(width: 44, height: 44)
           .background(Theme.raised, in: Circle())
         VStack(alignment: .leading, spacing: 2) {
-          Text(title).font(.system(size: 17, weight: .bold)).foregroundStyle(Theme.ink)
-          Text(detail).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.inkMuted).lineLimit(1)
+          Text(title).scaledFont(17, .bold).foregroundStyle(Theme.ink)
+          Text(detail).scaledFont(14, .semibold).foregroundStyle(Theme.inkMuted)
         }
+        Spacer(minLength: 8)
+        Text(action)
+          .scaledFont(15, .bold)
+          .foregroundStyle(Theme.onInk)
+          .padding(.horizontal, 16)
+          .padding(.vertical, 6)
+          .frame(minHeight: 36)
+          .background(Theme.ink, in: Capsule())
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(14)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
       .background(Theme.card, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
       .softShadow(radius: 16, y: 6)
     }
     .buttonStyle(SoftPress())
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -181,7 +220,7 @@ struct SidePicker: View {
               .fill(option == .white ? Color.white : option == .black ? Theme.ink : Theme.inkFaint)
               .overlay(Circle().strokeBorder(Theme.ink, lineWidth: 1.5))
               .frame(width: 12, height: 12)
-            Text(option.name).font(.system(size: 15, weight: .bold))
+            Text(option.name).scaledFont(15, .bold)
           }
           .foregroundStyle(Theme.ink)
           .padding(.horizontal, 14)
@@ -222,9 +261,9 @@ struct DayStrip: View {
         } label: {
           VStack(spacing: 4) {
             Text(day.formatted(.dateTime.weekday(.abbreviated)))
-              .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.inkMuted)
+              .scaledFont(15, .semibold).foregroundStyle(Theme.inkMuted)
             Text(day.formatted(.dateTime.day()))
-              .font(.system(size: 26, weight: .bold)).monospacedDigit().foregroundStyle(Theme.ink)
+              .scaledFont(26, .bold).monospacedDigit().foregroundStyle(Theme.ink)
             DayRing(count: history.days[DayKey.of(day)]?.count ?? 0)
           }
           .frame(maxWidth: .infinity)
@@ -236,6 +275,8 @@ struct DayStrip: View {
         }
         .buttonStyle(.plain)
         .disabled(future)
+        .accessibilityLabel("\(day.formatted(.dateTime.weekday(.wide).month(.wide).day())), \(StreakSheet.describe(history.days[DayKey.of(day)]))")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
       }
     }
   }

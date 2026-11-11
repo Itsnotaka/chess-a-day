@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum SettingsPage: String, Identifiable, Hashable {
   case root, difficulty, app, game, notifications, about
@@ -47,25 +48,25 @@ private struct SettingsRoot: View {
     let streak = history.streak()
     return VStack(spacing: 6) {
       HStack(spacing: 8) {
-        Image(systemName: level.symbol).font(.system(size: 18, weight: .bold))
-        Text(level.name).font(.system(size: 24, weight: .heavy))
+        Image(systemName: level.symbol).scaledFont(18, .bold)
+        Text(level.name).scaledFont(24, .heavy)
       }
       Text(streak == 0 ? "No streak yet" : "\(streak)-day streak")
-        .font(.system(size: 16, weight: .semibold)).opacity(0.9)
+        .scaledFont(16, .semibold).opacity(0.9)
       Button { path.append(.difficulty) } label: {
-        HStack(spacing: 8) {
-          Image(systemName: level.symbol).font(.system(size: 15, weight: .bold))
-          Text("Change level").font(.system(size: 18, weight: .bold))
-        }
-        .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 26)
-        .frame(height: 52)
+        Text("Change level")
+          .scaledFont(18, .bold)
+          .multilineTextAlignment(.center)
+          .foregroundStyle(Theme.ink)
+          .padding(.horizontal, 26)
+          .padding(.vertical, 12)
+          .frame(minHeight: 52)
         .background(Theme.card, in: Capsule())
       }
       .buttonStyle(SoftPress())
       .padding(.top, 10)
     }
-    .foregroundStyle(.white)
+    .foregroundStyle(Theme.onTint)
     .frame(maxWidth: .infinity)
     .padding(.vertical, 22)
     .background(level.tint, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
@@ -129,7 +130,7 @@ private struct DifficultyPage: View {
         }
       }
       Text("Sets the computer's strength and the daily puzzle from your next game.")
-        .font(.system(size: 14, weight: .medium))
+        .scaledFont(14, .medium)
         .foregroundStyle(Theme.inkMuted)
         .multilineTextAlignment(.center)
         .padding(.top, 8)
@@ -141,8 +142,18 @@ private struct AppSettingsPage: View {
   @AppStorage(Pref.appearance) private var appearance = Appearance.system
   @AppStorage(Pref.haptics) private var haptics = true
   @AppStorage(Pref.sounds) private var sounds = true
-  @AppStorage(Pref.appIcon) private var appIcon = "classic"
+  @State private var current = AppIcon.current
   @Namespace private var thumb
+
+  /// The check moves only once iOS confirms the new icon.
+  private func choose(_ icon: AppIcon) {
+    guard icon != current, UIApplication.shared.supportsAlternateIcons else { return }
+    Haptics.selection()
+    UIApplication.shared.setAlternateIconName(icon.alternateName) { error in
+      guard error == nil else { return }
+      Task { @MainActor in withAnimation(Theme.spring) { current = icon } }
+    }
+  }
 
   var body: some View {
     VStack(spacing: 0) {
@@ -154,8 +165,8 @@ private struct AppSettingsPage: View {
             Haptics.selection()
           } label: {
             HStack(spacing: 8) {
-              Image(systemName: option.symbol).font(.system(size: 17, weight: .bold))
-              if chosen { Text(option.name).font(.system(size: 17, weight: .bold)) }
+              Image(systemName: option.symbol).scaledFont(17, .bold)
+              if chosen { Text(option.name).scaledFont(17, .bold) }
             }
             .foregroundStyle(Theme.ink)
             .frame(maxWidth: chosen ? .infinity : 64)
@@ -177,14 +188,13 @@ private struct AppSettingsPage: View {
       SectionLabel(title: "App Icon").padding(.bottom, 14)
       ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: 14) {
-          ForEach(["classic", "night", "mono"], id: \.self) { icon in
-            Button {
-              withAnimation(Theme.spring) { appIcon = icon }
-              Haptics.selection()
-            } label: {
-              IconTile(style: icon, selected: appIcon == icon)
+          ForEach(AppIcon.allCases) { icon in
+            Button { choose(icon) } label: {
+              IconTile(icon: icon, selected: current == icon)
             }
             .buttonStyle(SoftPress())
+            .accessibilityLabel("\(icon.name) icon")
+            .accessibilityAddTraits(current == icon ? .isSelected : [])
           }
         }
         .padding(.vertical, 10)
@@ -198,18 +208,38 @@ private struct AppSettingsPage: View {
   }
 }
 
-/// An app icon choice: a knight on a tile, ringed in ink with a check when chosen.
+/// The app's icons: the primary one and two alternates, as the asset catalog names them.
+enum AppIcon: String, CaseIterable, Identifiable {
+  case classic, night, mono
+
+  var id: Self { self }
+  var name: String { rawValue.capitalized }
+
+  var alternateName: String? {
+    switch self {
+    case .classic: nil
+    case .night: "AppIcon-Night"
+    case .mono: "AppIcon-Mono"
+    }
+  }
+
+  @MainActor static var current: AppIcon {
+    allCases.first { $0.alternateName == UIApplication.shared.alternateIconName } ?? .classic
+  }
+}
+
+/// An app icon choice, drawn as the icon looks: ringed in ink with a check when chosen.
 private struct IconTile: View {
-  let style: String
+  let icon: AppIcon
   let selected: Bool
 
   var body: some View {
-    PieceSet.cburnett.image(style == "night" ? "bN" : "wN")
+    PieceSet.cburnett.image("wN")
       .resizable().scaledToFit()
       .padding(18)
-      .opacity(style == "mono" ? 0.45 : 1)
+      .colorMultiply(icon == .mono ? Color(white: 0.6) : .white)
       .frame(width: 96, height: 96)
-      .background(style == "night" ? Color(white: 0.15) : .white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+      .background(ground, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
       .overlay {
         RoundedRectangle(cornerRadius: 24, style: .continuous)
           .strokeBorder(selected ? Theme.ink : Theme.hairline, lineWidth: selected ? 3.5 : 1.5)
@@ -226,6 +256,14 @@ private struct IconTile: View {
             .transition(.scale.combined(with: .opacity))
         }
       }
+  }
+
+  private var ground: Color {
+    switch icon {
+    case .classic: Color(white: 0.996)
+    case .night: Color(white: 0.149)
+    case .mono: Color(white: 0.902)
+    }
   }
 }
 
@@ -280,7 +318,12 @@ private struct GameSettingsPage: View {
       .padding(.horizontal, 2)
 
       Hairline().padding(.top, 14).padding(.bottom, 22)
-      SectionLabel(title: "Clock").padding(.bottom, 12)
+      SectionLabel(title: "Clock").padding(.bottom, 4)
+      Text("Applies from your next game.")
+        .scaledFont(14, .medium)
+        .foregroundStyle(Theme.inkMuted)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 12)
       FlowLayout(spacing: 8) {
         ForEach(TimeControl.allCases) { option in
           Chip(title: option.name, selected: timeControl == option) {
@@ -332,7 +375,7 @@ private struct ThemeChoice<Tile: View>: View {
             }
           }
         Text(name)
-          .font(.system(size: 14, weight: .bold))
+          .scaledFont(14, .bold)
           .foregroundStyle(selected ? Theme.ink : Theme.inkMuted)
       }
     }
@@ -345,26 +388,66 @@ private struct ThemeChoice<Tile: View>: View {
 private struct NotificationsPage: View {
   @AppStorage(Pref.reminder) private var reminder = false
   @AppStorage(Pref.reminderHour) private var reminderHour = 9
+  @Environment(\.scenePhase) private var scenePhase
+  @State private var permission = Reminders.Permission.unknown
 
   var body: some View {
     VStack(spacing: 10) {
-      ToggleRow(symbol: "bell.badge.fill", title: "Daily Reminder", isOn: $reminder)
+      if permission == .blocked {
+        VStack(alignment: .leading, spacing: 10) {
+          Label("Notifications are off for Chess", systemImage: "bell.slash.fill")
+            .scaledFont(17, .bold)
+            .foregroundStyle(Theme.ink)
+          Text("Turn them on in iOS Settings to get a daily reminder.")
+            .scaledFont(15, .medium)
+            .foregroundStyle(Theme.inkMuted)
+          InkPill(title: "Open Settings", symbol: "gearshape.fill") {
+            if let url = URL(string: UIApplication.openNotificationSettingsURLString) { UIApplication.shared.open(url) }
+          }
+          .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(Theme.raised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+      }
+      ToggleRow(symbol: "bell.badge.fill", title: "Daily Reminder", isOn: Binding(get: { reminder }, set: turn))
+        .disabled(permission == .blocked)
       if reminder {
         ReminderHours(hour: $reminderHour).transition(.opacity)
       }
     }
     .animation(Theme.spring, value: reminder)
-    .onChange(of: reminder) { _, on in on ? Reminders.schedule(hour: reminderHour) : Reminders.cancel() }
-    .onChange(of: reminderHour) { _, hour in if reminder { Reminders.schedule(hour: hour) } }
+    .animation(Theme.spring, value: permission)
+    .task { await refresh() }
+    .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await refresh() } } }
+    .onChange(of: reminderHour) { _, hour in if reminder { Task { _ = await Reminders.enable(hour: hour) } } }
+  }
+
+  private func turn(_ on: Bool) {
+    guard on else {
+      reminder = false
+      Reminders.cancel()
+      return
+    }
+    Task {
+      reminder = await Reminders.enable(hour: reminderHour)
+      await refresh()
+    }
+  }
+
+  /// A reminder iOS won't deliver isn't shown as on.
+  private func refresh() async {
+    permission = await Reminders.permission()
+    if permission == .blocked { reminder = false }
   }
 }
 
 private struct AboutPage: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
-      Text("Chess is free software under the GPLv3.").font(.system(size: 17, weight: .semibold))
+      Text("Chess is free software under the GPLv3.").scaledFont(17, .semibold)
       Text("Engine: Stockfish 17 (GPLv3) via ChessKitEngine (MIT). Rules: ChessKit (MIT). Pieces: cburnett (GPLv2+). Puzzles: the lichess.org database (CC0).")
-        .font(.system(size: 15, weight: .medium))
+        .scaledFont(15, .medium)
         .foregroundStyle(Theme.inkMuted)
     }
     .foregroundStyle(Theme.ink)

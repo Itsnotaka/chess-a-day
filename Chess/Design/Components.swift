@@ -1,12 +1,15 @@
 import SwiftUI
 
 /// Presses sink a little and spring back: the one press feel every control shares.
+/// Under Reduce Motion a press only dims.
 struct SoftPress: ButtonStyle {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
-      .scaleEffect(configuration.isPressed ? 0.95 : 1)
-      .opacity(configuration.isPressed ? 0.88 : 1)
-      .animation(.spring(response: 0.28, dampingFraction: 0.7), value: configuration.isPressed)
+      .scaleEffect(configuration.isPressed && !reduceMotion ? 0.95 : 1)
+      .opacity(configuration.isPressed ? 0.85 : 1)
+      .animation(reduceMotion ? .easeOut(duration: 0.1) : .spring(response: 0.28, dampingFraction: 0.7), value: configuration.isPressed)
   }
 }
 
@@ -22,7 +25,7 @@ struct CircleIconButton: View {
     Button(action: action) {
       Image(systemName: symbol)
         .font(.system(size: size * 0.36, weight: .bold))
-        .foregroundStyle(tint == nil ? Theme.ink : .white)
+        .foregroundStyle(tint == nil ? Theme.ink : Theme.onTint)
         .frame(width: size, height: size)
         .background(tint ?? Theme.card, in: Circle())
         .shadow(color: (tint ?? .black).opacity(tint == nil ? 0.05 : 0.3), radius: 10, y: 4)
@@ -62,12 +65,13 @@ struct InkPill: View {
   var body: some View {
     Button(action: action) {
       HStack(spacing: 10) {
-        if let symbol { Image(systemName: symbol).font(.system(size: 17, weight: .bold)) }
-        Text(title).font(.system(size: 19, weight: .bold))
+        if let symbol { Image(systemName: symbol).scaledFont(17, .bold) }
+        Text(title).scaledFont(19, .bold)
       }
       .foregroundStyle(Theme.onInk)
       .padding(.horizontal, 28)
-      .frame(height: 56)
+      .padding(.vertical, 8)
+      .frame(minHeight: 56)
       .frame(maxWidth: fullWidth ? .infinity : nil)
       .background(Theme.ink, in: Capsule())
     }
@@ -84,12 +88,13 @@ struct SoftPill: View {
   var body: some View {
     Button(action: action) {
       HStack(spacing: 8) {
-        if let symbol { Image(systemName: symbol).font(.system(size: 15, weight: .bold)) }
-        Text(title).font(.system(size: 17, weight: .semibold))
+        if let symbol { Image(systemName: symbol).scaledFont(15, .bold) }
+        Text(title).scaledFont(17, .semibold)
       }
       .foregroundStyle(Theme.ink)
       .padding(.horizontal, 22)
-      .frame(height: 50)
+      .padding(.vertical, 8)
+      .frame(minHeight: 50)
       .background(Theme.raised, in: Capsule())
     }
     .buttonStyle(SoftPress())
@@ -107,10 +112,10 @@ struct LevelRow: View {
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 14) {
           Image(systemName: level.symbol)
-            .font(.system(size: 17, weight: .bold))
+            .scaledFont(17, .bold)
             .foregroundStyle(selected ? Theme.onInk : Theme.inkMuted)
           Text(level.name)
-            .font(.system(size: 20, weight: .bold))
+            .scaledFont(20, .bold)
             .opacity(selected ? 1 : 0.55)
           Spacer()
           if selected {
@@ -124,7 +129,7 @@ struct LevelRow: View {
         }
         if selected {
           Text(level.detail)
-            .font(.system(size: 16, weight: .medium))
+            .scaledFont(16, .medium)
             .opacity(0.85)
             .multilineTextAlignment(.leading)
             .transition(.opacity)
@@ -150,10 +155,11 @@ struct Chip: View {
   var body: some View {
     Button(action: action) {
       Text(title)
-        .font(.system(size: 16, weight: .bold))
+        .scaledFont(16, .bold)
         .foregroundStyle(selected ? Theme.onInk : Theme.ink)
         .padding(.horizontal, 18)
-        .frame(height: 44)
+        .padding(.vertical, 6)
+        .frame(minHeight: 44)
         .background(selected ? Theme.ink : Theme.raised, in: Capsule())
     }
     .buttonStyle(SoftPress())
@@ -170,7 +176,7 @@ struct SheetHeader: View {
     HStack {
       RaisedCircleButton(symbol: "chevron.left", label: "Back", action: back)
       Spacer()
-      Text(title).font(.system(size: 26, weight: .heavy)).tracking(-0.4)
+      Text(title).scaledFont(26, .heavy).tracking(-0.4)
       Spacer()
       Color.clear.frame(width: 52, height: 52)
     }
@@ -187,10 +193,10 @@ struct SettingsRowLabel: View {
 
   var body: some View {
     HStack(spacing: 16) {
-      Image(systemName: symbol).font(.system(size: 20, weight: .bold)).frame(width: 28)
-      Text(title).font(.system(size: 20, weight: .bold))
+      Image(systemName: symbol).scaledFont(20, .bold).frame(width: 28)
+      Text(title).scaledFont(20, .bold)
       Spacer()
-      Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundStyle(Theme.inkFaint)
+      Image(systemName: "chevron.right").scaledFont(15, .bold).foregroundStyle(Theme.inkFaint)
     }
     .foregroundStyle(Theme.ink)
     .padding(.vertical, 20)
@@ -208,8 +214,8 @@ struct ToggleRow: View {
   var body: some View {
     Toggle(isOn: $isOn) {
       HStack(spacing: 14) {
-        Image(systemName: symbol).font(.system(size: 19, weight: .bold)).frame(width: 26)
-        Text(title).font(.system(size: 19, weight: .bold))
+        Image(systemName: symbol).scaledFont(19, .bold).frame(width: 26)
+        Text(title).scaledFont(19, .bold)
       }
     }
     .tint(Theme.ink)
@@ -223,7 +229,7 @@ struct SectionLabel: View {
   let title: String
   var body: some View {
     Text(title)
-      .font(.system(size: 18, weight: .bold))
+      .scaledFont(18, .bold)
       .foregroundStyle(Theme.ink)
       .frame(maxWidth: .infinity, alignment: .leading)
   }

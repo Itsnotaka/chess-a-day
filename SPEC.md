@@ -57,9 +57,10 @@ No placement test. The level can be changed at any time.
 
 ## Home
 
-- **Top bar**, round 52 pt buttons: **Level** (filled with the level's colour, opens Difficulty) · **Streak** (laurel) · **Awards** (trophy) | **Stats** (bars) · **Settings** (gear). Streak, Awards and Stats have no screens yet.
+- **Top bar**, round 52 pt buttons: **Level** (filled with the level's colour, opens Difficulty) · **Streak** (laurel: the current run, the best, this week's rings) | **Stats** (bars: played, won, drawn, lost, and a Swift Charts bar chart by level) · **Settings** (gear). Awards come back when they exist; nothing on home opens a placeholder.
 - **The card** (white, 36 pt radius, soft shadow): the weekday in faded heavy type over the date in bold heavy type ("Thursday / May 15"), a status line ("● Your move" for a game in progress, "Today's game: won" and so on), a slightly tilted board preview (the game in progress, else the start position) with a black **Play** pill over it, and a three-way **White · Random · Black** picker under it ("Playing as White · Medium" while a game is in progress).
-- **Two tiles** under the card: **Daily puzzle** (the level, Solve / Solved) and **Free play** (Two players / Continue game).
+- **Free play row** under the card (Play / Continue). The **Daily puzzle** tile joins it once puzzles ship.
+- Choosing a past day on the strip shows what was played that day; the card's pill becomes **Back to today**, so the heading never disagrees with the game Play opens.
 - **Day strip** at the bottom: five days centred on the selected one, each with its weekday, its number and a ring. Dashed ring: nothing counted. Half ring: a game *or* the puzzle. Full ring: both. Past days open their puzzle; the computer is always today.
 
 ## Games against the computer
@@ -137,21 +138,44 @@ Taken from sudokuaday.com's CSS custom properties, so the app matches the refere
 ## Internals
 
 ```
-project.yml                 XcodeGen: targets, packages (ChessKit, ChessKitEngine), signing team
+project.yml                 XcodeGen: targets, packages (ChessKit, ChessKitEngine, Vortex), signing team, alternate icons
 Chess/ChessApp.swift        the app, RootView (onboarding or home), scheme, rounded font
 Chess/Design/               Theme (tokens), Components (buttons, rows, chips), FlowLayout
-Chess/Model/                Level/TimeControl/Pref, GameStore, ChessEngine (+ Fallback), History, Haptics, Reminders
-Chess/Views/                OnboardingView, HomeView (+ SidePicker, DayStrip), BoardView (+ MiniBoard), GameView, SettingsSheet
+Chess/Model/                Level/TimeControl/Pref, GameStore, ChessEngine (+ Fallback), History, Haptics, Sounds, Reminders
+Chess/Design/               Theme, BoardStyle (board themes, piece sets), Components, ScaledFont, FlowLayout
+Chess/Views/                OnboardingView, HomeView (+ HomeRow, SidePicker, DayStrip), BoardView (+ MiniBoard), GameView, SettingsSheet, StatsViews (Streak, Stats)
 Chess/Assets.xcassets       pieces (SVG), AccentColor, LaunchBackground, AppIcon
 Chess/NNUE/                 Stockfish networks (git-ignored; tools/fetch-nnue.sh)
-tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh
+Chess/Sounds/               move.wav, capture.wav, end.wav (synthesised)
+tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh, make-icons.swift
 ```
 
 - **The saved game is the moves.** `game.json` holds the UCI moves, side, level, clock and ending; the board is always rebuilt by replaying them, so it can't disagree with the file.
 - **Pieces keep ids.** Each piece's id is the square it started on, carried through captures, castling and promotion, so SwiftUI slides it instead of redrawing.
 - **The engine is an actor.** `ChessEngine.bestMove(fen:level:)` sets the level's options and `go movetime`, and waits for `bestmove`. The game shows "Thinking…" for at least the level's minimum pause.
-- **Clocks** are stored at each move and counted down from `lastMoveAt` by a `TimelineView`; a flag ends the game.
+- **Clocks** are stored at each move and counted down from `lastMoveAt` by a `TimelineView`. The model adjudicates: a move made after the flag fell loses on time and earns no increment, whether or not the view noticed first.
+- **A relaunch resumes the computer's turn** when the saved game is waiting for its reply.
+- **History** keeps day marks (for the strip and streak) and one `GameRecord` per finished computer game (for Stats).
 - **Reminders** use a repeating `UNCalendarNotificationTrigger`; iOS repeats it.
+
+## Feel and accessibility
+
+- **Sounds** (AVFoundation): a soft knock for a move, a deeper double knock for a capture, a two-note chime when a game ends. Synthesised by a script, so they carry no licence. Ambient session, respects the silent switch, played on a serial queue so audio never touches the main thread.
+- **Haptics** (UIKit): one generator per kind, made once and reused; the drop's generator is prepared when a drag starts.
+- **Confetti** (Vortex) in the level colours when you win; none under Reduce Motion.
+- **Drag**: the dragged piece itself rides above the finger (1.35x, with a shadow) and settles into its new square or back to its own; a cancelled touch settles it back too.
+- **VoiceOver**: every square is a button labelled with its square and piece ("e4, white pawn") and valued with its state (selected, legal move, capture, in check, last move); activating it is a tap. Promotion choices are named. Clocks read as "You's clock, 4:32".
+- **Dynamic Type**: every size goes through `scaledFont`, which follows the reader's text size. Home and the game are one screen without scrolling, so they stop at the largest standard size; sheets scroll and go to Accessibility 2.
+- **Reduce Motion**: presses only dim, onboarding steps fade instead of slide, pieces fade instead of slide, no pulse, no confetti.
+- **Contrast**: the level colours are a step deeper than Sudoku a Day's in light mode, so white on them and them on a light fill keep 3:1; in dark mode the symbol on a level colour is near-black. Dark-mode boards are mid-toned so black pieces never sink into them.
+- **Reminders** stay off when iOS won't deliver them: a blocked permission shows as such, with Open Settings.
+- **App icons**: Classic, Night and Mono, rendered from the knight by `tools/make-icons.swift`; the check moves only after `setAlternateIconName` succeeds.
+
+## Later
+
+- **Daily puzzle** (the lichess CC0 set, bundled) and **Awards**.
+- **Widgets** (WidgetKit): today's ring and streak on the Home Screen.
+- **Game Center** (GameKit): streak and win leaderboards. Needs App Store Connect setup.
 
 ## Not in v1
 

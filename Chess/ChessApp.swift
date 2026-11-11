@@ -20,7 +20,11 @@ struct ChessApp: App {
         .environment(games.computer)
         .fontDesign(.rounded)
         .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
-        .task { await ChessEngine.shared.warmUp() }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .task {
+          Sounds.warmUp()
+          await ChessEngine.shared.warmUp()
+        }
     }
   }
 }
