@@ -11,4 +11,4 @@ xcodegen generate --quiet
 xcodebuild -project Chess.xcodeproj -scheme Chess -configuration Release \
   -destination "id=$UDID" -derivedDataPath build -allowProvisioningUpdates -quiet build
 xcrun devicectl device install app --device "$UDID" build/Build/Products/Release-iphoneos/Chess.app
-xcrun devicectl device process launch --device "$UDID" dev.workgyver.chess
+xcrun devicectl device process launch --device "$UDID" com.workgyver.chess

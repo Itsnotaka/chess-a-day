@@ -49,6 +49,27 @@ actor ChessEngine {
     }
   }
 
+  /// Times a reply at every level on a few positions, for `devicectl … --console`.
+  static func benchmark() async {
+    let positions = [
+      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+      "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+      "r2q1rk1/pp2bppp/2np1n2/2p1p3/4P3/2PP1N1P/PPB2PP1/RNBQR1K1 b - - 0 10",
+    ]
+    print("[bench] networks bundled: \(hasNetworks)")
+    let warm = ContinuousClock.now
+    await shared.warmUp()
+    print("[bench] warm-up: \(ContinuousClock.now - warm)")
+    for level in Level.allCases {
+      for fen in positions {
+        let start = ContinuousClock.now
+        let move = await shared.bestMove(fen: fen, level: level)
+        print("[bench] \(level.name) budget \(level.moveTime) ms: \(move ?? "nil") in \(ContinuousClock.now - start)")
+      }
+    }
+    print("[bench] done")
+  }
+
   func newGame() async {
     guard started else { return }
     await engine.send(command: .ucinewgame)

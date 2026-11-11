@@ -59,7 +59,7 @@ No placement test. The level can be changed at any time.
 
 - **Top bar**, round 52 pt buttons: **Level** (filled with the level's colour, opens Difficulty) · **Streak** (laurel: the current run, the best, this week's rings) | **Stats** (bars: played, won, drawn, lost, and a Swift Charts bar chart by level) · **Settings** (gear). Awards come back when they exist; nothing on home opens a placeholder.
 - **The card** (white, 36 pt radius, soft shadow): the weekday in faded heavy type over the date in bold heavy type ("Thursday / May 15"), a status line ("● Your move" for a game in progress, "Today's game: won" and so on), a slightly tilted board preview (the game in progress, else the start position) with a black **Play** pill over it, and a three-way **White · Random · Black** picker under it ("Playing as White · Medium" while a game is in progress).
-- **Free play row** under the card (Play / Continue). The **Daily puzzle** tile joins it once puzzles ship.
+- **Two tiles** under the card: **Free play** (one phone) and **Online** (with a count of games waiting on you). The **Daily puzzle** joins them once puzzles ship.
 - Choosing a past day on the strip shows what was played that day; the card's pill becomes **Back to today**, so the heading never disagrees with the game Play opens.
 - **Day strip** at the bottom: five days centred on the selected one, each with its weekday, its number and a ring. Dashed ring: nothing counted. Half ring: a game *or* the puzzle. Full ring: both. Past days open their puzzle; the computer is always today.
 
@@ -73,10 +73,21 @@ No placement test. The level can be changed at any time.
 - A game in progress is kept across launches.
 - End: a sheet shows the result (Win / Draw / Loss and the reason), the moves count, and buttons for Play again and Done.
 
+## Online with friends
+
+- Game Center turn-based matches (`GKTurnBasedMatch`), so there is no server and no account of ours. Signed in quietly at launch.
+- **Invite** opens Apple's invite-only picker: Messages to any contact, Game Center friends, recent players. Whoever invites plays White.
+- Each move ends your turn with a **one-day timeout**; your friend gets Game Center's turn notification. A turn left too long loses on time.
+- The match stores `{moves, whiteID}`; the board replays the moves through the same `GameStore` (mode `.online`), so rules, drag, sounds and VoiceOver are shared.
+- Checkmate, a draw or a resignation ends the match for both with won, lost or tied; a friend who resigns out of turn hands you the win. **Rematch** starts a new match with the same friend.
+- Home's **Online** tile shows how many games wait on you; the sheet lists games, your move first. Finished games can be removed with a long press.
+- Online games don't count toward the streak or Stats.
+- Needs the App Store Connect app record with Game Center (bundle `com.workgyver.chess`, Game Center capability enabled through asc). Testing needs two Game Center accounts.
+
 ## Free play
 
 - Two people, one phone. Either side moves in turn; there is no engine and no level.
-- Opened from the **Free play** tile on home; it keeps its own saved game (`free-play.json`), so a computer game in progress is never lost.
+- Opened from the **Free play** tile on home (and from the Online sheet); it keeps its own saved game (`free-play.json`), so a computer game in progress is never lost.
 - White plays from the bottom. **Turn Board in Free Play** (Game Settings) turns it to the side to move after each move; Flip turns it by hand.
 - The rows read White and Black; "To move" marks whose turn it is. Resign resigns for the side to move. The result reads "White wins", "Black wins" or "Draw".
 - The clock works as in a computer game. Free play doesn't count toward the streak.
@@ -175,7 +186,7 @@ tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh, make-ico
 
 - **Daily puzzle** (the lichess CC0 set, bundled) and **Awards**.
 - **Widgets** (WidgetKit): today's ring and streak on the Home Screen.
-- **Game Center** (GameKit): streak and win leaderboards. Needs App Store Connect setup.
+- **Game Center leaderboards** (GameKit): streak and wins.
 
 ## Not in v1
 

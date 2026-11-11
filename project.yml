@@ -1,6 +1,6 @@
 name: Chess
 options:
-  bundleIdPrefix: dev.workgyver
+  bundleIdPrefix: com.workgyver
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true
@@ -35,6 +35,10 @@ targets:
     sources:
       # Chess/NNUE/*.nnue (tools/fetch-nnue.sh) land at the bundle's root, where ChessKitEngine looks.
       - path: Chess
+    entitlements:
+      path: Chess/Chess.entitlements
+      properties:
+        com.apple.developer.game-center: true
     dependencies:
       - package: ChessKit
       - package: ChessKitEngine
@@ -46,11 +50,13 @@ targets:
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Portrait only, so iOS must not offer it in Split View or Slide Over.
+        UIRequiresFullScreen: true
         UIApplicationSupportsIndirectInputEvents: true
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.workgyver.chess
+        PRODUCT_BUNDLE_IDENTIFIER: com.workgyver.chess
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "AppIcon-Night AppIcon-Mono"
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

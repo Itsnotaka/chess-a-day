@@ -16,7 +16,7 @@ struct SavedGame: Codable, Sendable {
   var ending: Ending?
   var recorded = false
 
-  enum Ending: Codable, Sendable {
+  enum Ending: Codable, Equatable, Sendable {
     case resigned(Piece.Color)
     case flagged(Piece.Color)
   }
@@ -28,9 +28,9 @@ struct BoardPiece: Identifiable, Equatable {
   let piece: Piece
 }
 
-/// Against the computer, or two people passing one phone.
+/// Against the computer, two people passing one phone, or a friend online through Game Center.
 enum GameMode: String, Identifiable, Sendable {
-  case computer, friend
+  case computer, friend, online
   var id: Self { self }
 }
 
@@ -67,6 +67,14 @@ final class GameStore {
   var selected: Square?
   var promotion: (from: Square, to: Square)?
 
+  /// Online only: the friend's name, and whether the turn is theirs (or the match closed).
+  private(set) var opponentName = ""
+  private(set) var waitingForOpponent = false
+  /// Online only: `OnlineGames` sends each move, resignation and rematch to Game Center.
+  var onlineSubmit: ((SavedGame) -> Void)?
+  var onlineResign: (() -> Void)?
+  var onlineRematch: (() -> Void)?
+
   let mode: GameMode
   private let url: URL
   private let history: History
@@ -74,8 +82,8 @@ final class GameStore {
   init(mode: GameMode, history: History) {
     self.mode = mode
     self.history = history
-    url = Storage.file(mode == .computer ? "game.json" : "free-play.json")
-    saved = Storage.read(SavedGame.self, from: url)
+    url = Storage.file("\(mode.rawValue)-game.json")
+    saved = mode == .online ? nil : Storage.read(SavedGame.self, from: url)
     rebuild()
     // A relaunch can land between your saved move and the computer's reply: resume it.
     replyIfNeeded()
@@ -86,7 +94,33 @@ final class GameStore {
   var active: Bool { saved != nil && !isOver }
   var you: Piece.Color { saved?.you ?? .white }
   var level: Level { saved?.level ?? .medium }
-  var yourTurn: Bool { active && !thinking && (mode == .friend || board.position.sideToMove == you) }
+  var yourTurn: Bool {
+    switch mode {
+    case .friend: active && !thinking
+    case .computer: active && !thinking && board.position.sideToMove == you
+    case .online: active && !waitingForOpponent && board.position.sideToMove == you
+    }
+  }
+
+  /// Shows a game Game Center sent: the moves so far, who the friend is, and whose turn it is.
+  func loadOnline(_ saved: SavedGame, opponent: String, waiting: Bool) {
+    let same = self.saved?.moves == saved.moves && self.saved?.ending == saved.ending
+    self.saved = saved
+    opponentName = opponent
+    waitingForOpponent = waiting
+    guard !same else { return }
+    selected = nil
+    promotion = nil
+    rebuild()
+    // The friend's move arriving: the same sound and tap as a move made here.
+    if isOver {
+      Haptics.finish(won: result != .loss)
+      Sounds.play(.end)
+    } else if let last = san.last, !waiting {
+      Sounds.play(last.contains("x") ? .capture : .move)
+      Haptics.move(capture: last.contains("x"))
+    }
+  }
   var sideToMove: Piece.Color { board.position.sideToMove }
 
   /// The side drawn at the bottom: yours against the computer; in free play White, or the side
@@ -211,6 +245,10 @@ final class GameStore {
   }
 
   func resign() {
+    if mode == .online {
+      onlineResign?()
+      return
+    }
     guard active, var saved else { return }
     saved.ending = .resigned(mode == .friend ? sideToMove : you)
     self.saved = saved
@@ -263,6 +301,10 @@ final class GameStore {
     saved.lastMoveAt = now
     self.saved = saved
     rebuild()
+    if mode == .online {
+      waitingForOpponent = true
+      onlineSubmit?(saved)
+    }
     Haptics.move(capture: lastCapture)
     Sounds.play(lastCapture ? .capture : .move)
     finishIfOver()
@@ -294,11 +336,14 @@ final class GameStore {
     if mode == .computer, let result {
       history.record(GameRecord(date: .now, level: saved.level, result: result == .win ? .win : result == .loss ? .loss : .draw, moves: moveCount))
     }
-    Haptics.finish(won: result != .loss)
-    Sounds.play(.end)
+    if mode != .online || saved.moves.count > 0 {
+      Haptics.finish(won: result != .loss)
+      Sounds.play(.end)
+    }
   }
 
   private func persist() {
+    guard mode != .online else { return }
     if let saved { Storage.write(saved, to: url) } else { Storage.remove(url) }
   }
 

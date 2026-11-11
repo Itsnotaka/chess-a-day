@@ -9,4 +9,4 @@ xcodebuild -project Chess.xcodeproj -scheme Chess -configuration Debug \
 xcrun simctl boot "$DEVICE" 2>/dev/null || true
 open -a Simulator
 xcrun simctl install "$DEVICE" build/Build/Products/Debug-iphonesimulator/Chess.app
-xcrun simctl launch "$DEVICE" dev.workgyver.chess
+xcrun simctl launch "$DEVICE" com.workgyver.chess

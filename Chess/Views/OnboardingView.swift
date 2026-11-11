@@ -1,3 +1,4 @@
+import ChessKit
 import SwiftUI
 
 /// First launch: Welcome, Level, Reminder, on one floating card over the grey ground.
@@ -11,11 +12,21 @@ struct OnboardingView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
-    ZStack(alignment: .bottom) {
-      Theme.ground.ignoresSafeArea()
-      VStack(spacing: 16) {
+    VStack(spacing: 0) {
+      // The ground above the card shows what the app is: a board, set up and waiting.
+      MiniBoard(pieces: Self.startPieces, flipped: false)
+        .frame(maxWidth: 230)
+        .rotationEffect(.degrees(-6))
+        .softShadow(radius: 24, y: 12)
+        .padding(.horizontal, 60)
+        .padding(.vertical, 24)
+        .frame(maxHeight: .infinity)
+        .opacity(step == 0 ? 1 : 0.5)
+        .accessibilityHidden(true)
+
+      VStack(spacing: 18) {
         AppMark()
-        ZStack {
+        Group {
           switch step {
           case 0: welcome
           case 1: levels
@@ -26,40 +37,47 @@ struct OnboardingView: View {
         .transition(reduceMotion ? .opacity : .asymmetric(
           insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
           removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
-        .frame(maxHeight: .infinity)
-        buttons
+        buttons.padding(.top, 6)
       }
       .padding(.horizontal, 22)
-      .padding(.top, 28)
+      .padding(.top, 26)
       .padding(.bottom, 22)
       .frame(maxWidth: .infinity)
-      .frame(minHeight: step == 1 ? 640 : 560)
       .background(Theme.card, in: RoundedRectangle(cornerRadius: 44, style: .continuous))
       .clipShape(RoundedRectangle(cornerRadius: 44, style: .continuous))
       .softShadow(radius: 30, y: 12)
       .padding(.horizontal, 12)
       .padding(.bottom, 8)
     }
+    .background(Theme.ground.ignoresSafeArea())
     .animation(Theme.spring, value: step)
   }
 
+  private static let startPieces = Board().position.pieces.map { BoardPiece(id: $0.square.notation, piece: $0) }
+
   private var welcome: some View {
-    VStack(spacing: 12) {
-      Text("Chess").scaledFont(40, .heavy).tracking(-1.2)
-      Text("One calm game a day. Play the computer, solve a puzzle, keep your streak.")
-        .scaledFont(18, .medium)
-        .foregroundStyle(Theme.inkMuted)
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: 300)
+    VStack(spacing: 18) {
+      VStack(spacing: 6) {
+        Text("Chess").scaledFont(36, .heavy).tracking(-1.1)
+        Text("One calm game a day.")
+          .scaledFont(18, .medium)
+          .foregroundStyle(Theme.inkMuted)
+      }
+      .foregroundStyle(Theme.ink)
+      VStack(spacing: 10) {
+        Feature(symbol: "cpu", title: "Play the computer", detail: "Five levels, from Easy to Master.")
+        Feature(symbol: "person.2.fill", title: "Play a friend", detail: "Two players, one phone.")
+        Feature(symbol: "laurel.leading", title: "Keep a streak", detail: "One game a day keeps it going.")
+      }
     }
-    .foregroundStyle(Theme.ink)
   }
 
+  /// The list as it is, or scrolling when large text makes it taller than the screen.
   private var levels: some View {
-    ScrollView {
+    ViewThatFits(in: .vertical) {
       levelList
+      ScrollView { levelList }
     }
-    .scrollBounceBehavior(.basedOnSize)
   }
 
   private var levelList: some View {
@@ -84,7 +102,7 @@ struct OnboardingView: View {
         .foregroundStyle(level.tint)
         .symbolEffect(.bounce, value: reduceMotion ? 0 : step)
       Text("A daily nudge?").scaledFont(28, .heavy).foregroundStyle(Theme.ink)
-      Text("One reminder a day, when your game and puzzle are waiting.")
+      Text("One reminder a day, at a time that suits you.")
         .scaledFont(17, .medium)
         .foregroundStyle(Theme.inkMuted)
         .multilineTextAlignment(.center)
@@ -131,6 +149,31 @@ struct OnboardingView: View {
       reminder = await Reminders.enable(hour: reminderHour)
       onboarded = true
     }
+  }
+}
+
+/// One thing the app does: a round symbol, a title and a line.
+private struct Feature: View {
+  let symbol: String
+  let title: String
+  let detail: String
+
+  var body: some View {
+    HStack(spacing: 14) {
+      Image(systemName: symbol)
+        .font(.system(size: 17, weight: .bold))
+        .foregroundStyle(Theme.ink)
+        .frame(width: 44, height: 44)
+        .background(Theme.raised, in: Circle())
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).scaledFont(17, .bold).foregroundStyle(Theme.ink)
+        Text(detail).scaledFont(15, .medium).foregroundStyle(Theme.inkMuted)
+      }
+      Spacer(minLength: 0)
+    }
+    .padding(12)
+    .background(Theme.raised.opacity(0.5), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    .accessibilityElement(children: .combine)
   }
 }
 

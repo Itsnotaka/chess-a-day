@@ -57,17 +57,20 @@ struct GameView: View {
     let colorName = color == .white ? "White" : "Black"
     let toMove = game.active && game.sideToMove == color
     let isComputer = game.mode == .computer && color != game.you
+    let isFriendOnline = game.mode == .online && color != game.you
     let status: String? = if isComputer {
       game.thinking ? "Thinking…" : nil
+    } else if isFriendOnline {
+      game.active && game.waitingForOpponent ? "Their move" : nil
     } else if toMove && !game.thinking {
       game.checkedKing != nil ? "Check" : game.mode == .friend ? "To move" : "Your move"
     } else {
       nil
     }
     return PlayerRow(
-      name: game.mode == .friend ? colorName : isComputer ? "Computer" : "You",
+      name: game.mode == .friend ? colorName : isComputer ? "Computer" : isFriendOnline ? game.opponentName : "You",
       detail: game.mode == .friend ? "" : isComputer ? game.level.name : colorName,
-      symbol: game.mode == .friend ? (color == .white ? "circle" : "circle.fill") : isComputer ? game.level.symbol : "person.fill",
+      symbol: game.mode == .friend ? (color == .white ? "circle" : "circle.fill") : isComputer ? game.level.symbol : isFriendOnline ? "person.crop.circle.fill" : "person.fill",
       tint: isComputer ? game.level.tint : Theme.ink,
       taken: game.taken(by: color),
       clock: game.timeLeft(color, at: now),
@@ -80,7 +83,7 @@ struct GameView: View {
       RaisedCircleButton(symbol: "chevron.down", label: "Close") { dismiss() }
       Spacer()
       VStack(spacing: 2) {
-        Text(game.mode == .friend ? "Free play" : game.level.name)
+        Text(title)
           .scaledFont(17, .bold)
           .foregroundStyle(Theme.ink)
         HStack(spacing: 5) {
@@ -94,6 +97,14 @@ struct GameView: View {
       RaisedCircleButton(symbol: "gearshape.fill", label: "Game Settings") { settings = true }
     }
     .padding(.top, 4)
+  }
+
+  private var title: String {
+    switch game.mode {
+    case .computer: game.level.name
+    case .friend: "Free play"
+    case .online: "vs \(game.opponentName)"
+    }
   }
 
   private var resignQuestion: String {
@@ -112,8 +123,12 @@ struct GameView: View {
         .foregroundStyle(Theme.ink)
         HStack(spacing: 10) {
           SoftPill(title: "Done") { dismiss() }
-          InkPill(title: "Play again", symbol: "arrow.clockwise") {
-            game.newGame(side: game.mode == .friend ? .white : SidePreference(rawValue: side) ?? .white, level: level, timeControl: timeControl)
+          InkPill(title: game.mode == .online ? "Rematch" : "Play again", symbol: "arrow.clockwise") {
+            if game.mode == .online {
+              game.onlineRematch?()
+            } else {
+              game.newGame(side: game.mode == .friend ? .white : SidePreference(rawValue: side) ?? .white, level: level, timeControl: timeControl)
+            }
           }
         }
       }
