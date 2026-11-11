@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y", "nextjs", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "env": { "browser": true, "node": true },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    // Stylesheets are imported for their side effect.
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }],
+    // The board is a grid of squares drawn as one image; <img> can't hold children.
+    "jsx-a11y/prefer-tag-over-role": "off"
+  },
+  "ignorePatterns": [".next/**", "next-env.d.ts"]
+}

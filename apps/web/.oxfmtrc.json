@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 120,
+  "sortPackageJson": true,
+  "sortTailwindcss": { "stylesheet": "./src/app/globals.css" },
+  "ignorePatterns": [".next/**", "next-env.d.ts", "pnpm-lock.yaml"]
+}
