@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+
+  --ground: #e6e6e6;
+  --card: #feffff;
+  --raised: #f2f2f2;
+  --ink: #262626;
+  --ink-muted: #666666;
+  --ink-faint: #bfbfbf;
+  --on-ink: #feffff;
+  --shadow: rgb(0 0 0 / 0.07);
+  --hairline: rgb(0 0 0 / 0.06);
+
+  --teal: #1a8fa8;
+  --purple: #a045d3;
+  --red: #e0362a;
+  --brown: #8e7049;
+
+  --board-light: #fafafa;
+  --board-dark: #dcdcdc;
+  --board-last: rgb(38 38 38 / 0.13);
+  --board-edge: #262626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #1a1a1a;
+    --card: #262626;
+    --raised: #333333;
+    --ink: #d9d9d9;
+    --ink-muted: #8c8c8c;
+    --ink-faint: #404040;
+    --on-ink: #1a1a1a;
+    --shadow: rgb(0 0 0 / 0);
+    --hairline: rgb(255 255 255 / 0.07);
+
+    --teal: #29d1ff;
+    --purple: #bc85ff;
+    --red: #ff6767;
+    --brown: #c4a27a;
+
+    --board-light: #a3a3a3;
+    --board-dark: #787878;
+    --board-last: rgb(255 255 255 / 0.18);
+    --board-edge: #d9d9d9;
+  }
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-card: var(--card);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-on-ink: var(--on-ink);
+  --color-hairline: var(--hairline);
+  --color-teal: var(--teal);
+  --color-purple: var(--purple);
+  --color-red: var(--red);
+  --color-brown: var(--brown);
+  --color-board-light: var(--board-light);
+  --color-board-dark: var(--board-dark);
+  --color-board-last: var(--board-last);
+  --color-board-edge: var(--board-edge);
+
+  --font-rounded: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius-card: 36px;
+  --radius-row: 20px;
+  --radius-board: 12px;
+  --shadow-card: 0 10px 30px var(--shadow);
+}
+
+html {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-rounded);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.faded {
+  background: linear-gradient(to bottom, var(--ink-faint), color-mix(in srgb, var(--ink-faint) 25%, transparent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.press {
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms ease-out;
+}
+.press:active {
+  transform: scale(0.95);
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press,
+  .press:active {
+    transition: opacity 100ms ease-out;
+    transform: none;
+  }
+}
