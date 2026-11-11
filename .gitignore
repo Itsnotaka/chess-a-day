@@ -1,0 +1,6 @@
+/build/
+/Chess.xcodeproj/
+/Chess/NNUE/*.nnue
+.DS_Store
+xcuserdata/
+/.shots/

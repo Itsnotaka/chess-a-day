@@ -1,0 +1,25 @@
+{
+  "$schema": "../exact/scripts/app.schema.json",
+  "name": "Chess",
+  "short_name": "Chess",
+  "id": "dev.workgyver.chess",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "dev.workgyver.chess",
+    "name": "Chess"
+  },
+  "host": {
+    "web": {},
+    "ios": {
+      "minimumOS": "17.0",
+      "deviceFamily": ["iphone"]
+    }
+  },
+  "deploy": {
+    "store": {
+      "web": "0",
+      "ios": "0"
+    }
+  }
+}

@@ -1,0 +1,638 @@
+// Chess: one calm game a day. Onboarding, home, the settings sheet and the game.
+// app.ts answers every position; the view only selects, drags and asks.
+use Square, Piece, MiniBoard, col, row, pct, pieceSrc from "./board.contract"
+font "Nunito"
+  400 = "assets/fonts/Nunito.ttf"
+  600 = "assets/fonts/Nunito.ttf"
+  700 = "assets/fonts/Nunito.ttf"
+  800 = "assets/fonts/Nunito.ttf"
+
+use IconButton, InkPill, SoftPill, LevelOption, SheetHeader, SettingsRow, SwitchRow, Chip, DayCell from "./ui.contract"
+
+shape Time
+  epochAtZero: number
+  utcOffset: number
+
+shape Media
+  prefersReducedMotion: bool
+
+shape Taken
+  key: string
+  code: string
+
+shape Move
+  from: string
+  to: string
+  promotion: string
+
+shape Position
+  active: bool
+  over: bool
+  you: string
+  turn: string
+  level: string
+  squares: Square[]
+  pieces: Piece[]
+  moves: Move[]
+  check: string
+  lastFrom: string
+  lastTo: string
+  result: string
+  reason: string
+  plies: number
+  timed: bool
+  whiteMs: number
+  blackMs: number
+  lastMoveAt: number
+  startedAt: number
+  takenByYou: Taken[]
+  takenByThem: Taken[]
+
+shape Reply
+  ok: bool
+  engineTurn: bool
+  error: string
+
+shape DayMark
+  day: string
+  game: bool
+  puzzle: bool
+
+shape Summary
+  streak: number
+  days: DayMark[]
+
+shape DayLabel
+  key: string
+  short: string
+  long: string
+  monthDay: string
+  number: string
+  future: bool
+
+routes nav
+  home "/"
+    settings "/settings"
+      difficulty "/settings/difficulty"
+      appSettings "/settings/app"
+      gameSettings "/settings/game"
+      notifications "/settings/notifications"
+      about "/settings/about"
+    game "/game"
+
+fn levelName(l: string): string = l == "easy" ? "Easy" : l == "medium" ? "Medium" : l == "hard" ? "Hard" : l == "expert" ? "Expert" : "Master"
+fn levelSymbol(l: string): string = l == "easy" ? "symbol:icon.square" : l == "medium" ? "symbol:icon.circle" : l == "hard" ? "symbol:icon.seal" : l == "expert" ? "symbol:star-fill" : "symbol:icon.crown"
+fn levelDetail(l: string): string = l == "easy" ? "Learning the moves. The computer misses a lot." : l == "medium" ? "You know the rules and a few tricks." : l == "hard" ? "You play regularly and see tactics coming." : l == "expert" ? "Club strength. Few free pieces here." : "No mercy."
+fn tcName(t: string): string = t == "none" ? "No clock" : t
+fn two(n: number): string = n < 10 ? `0${n}` : `${n}`
+fn clockText(ms: number): string = `${floor(max(ms, 0) / 60000)}:${two(floor(max(ms, 0) / 1000) - floor(max(ms, 0) / 60000) * 60)}`
+fn squareId(i: number, you: string): string = you == "w" ? `${"abcdefgh".slice(col(i), col(i) + 1)}${8 - row(i)}` : `${"hgfedcba".slice(col(i), col(i) + 1)}${row(i) + 1}`
+fn isLegal(moves: Move[], f: string, t: string): bool = moves.filter(m => m.from == f and m.to == t).length > 0
+fn needsPromotion(moves: Move[], f: string, t: string): bool = moves.filter(m => m.from == f and m.to == t and m.promotion != "").length > 0
+fn marksFor(days: DayMark[], key: string): number = sum(days.filter(d => d.day == key).map(d => (d.game ? 1 : 0) + (d.puzzle ? 1 : 0)))
+fn movesText(n: number): string = `${n} ${n == 1 ? "move" : "moves"}`
+fn resultTitle(r: string): string = r == "win" ? "You won" : r == "loss" ? "You lost" : "Draw"
+
+keyframes rise
+  from opacity=0 translate="0px 24px"
+keyframes fade
+  from opacity=0
+keyframes pop
+  from opacity=0 scale=0.92
+
+component Chess
+  state onboarded = false persist
+  state level = "medium" persist
+  state side = "white" persist
+  state scheme = "system" persist
+  state haptics = true persist
+  state sounds = true persist
+  state timeControl = "none" persist
+  state coords = true persist
+  state showMoves = true persist
+  state autoQueen = false persist
+  state appIcon = "classic" persist
+  state reminder = false persist
+  state reminderTime = "9:00" persist
+
+  state step = 0
+  state now = 0
+  state selected = ""
+  state from = -1
+  state dragging = false
+  state cell = 40
+  state gx = 0
+  state gy = 0
+  state promoFrom = ""
+  state promoTo = ""
+  state selectedDay = ""
+
+  resource time = exactTime() as shape Time
+  resource media = exactViewport() as shape Media
+  resource position = loadGame() as shape Position
+  resource summary = loadSummary(today) as shape Summary else empty()
+  resource strip = dayStrip(today) as shape DayLabel[] else empty()
+  mutation started as shape Reply refreshes position then afterMove
+  mutation moved as shape Reply refreshes position, summary then afterMove
+  mutation replied as shape Reply queue refreshes position, summary then afterReply
+  mutation resigned as shape Reply refreshes position, summary
+  mutation flagged as shape Reply refreshes position, summary
+
+  derive still = media.prefersReducedMotion
+  derive shown = time.epochAtZero + now
+  derive today = formatDate(shown, time.utcOffset, "iso")
+  derive day = selectedDay == "" ? today : selectedDay
+  derive yourTurn = position.active and not position.over and position.turn == position.you
+  derive thinking = pending(replied) or pending(started) or (position.active and not position.over and position.turn != position.you)
+  derive targets = selected == "" ? [] : position.moves.filter(m => m.from == selected).map(m => m.to)
+  derive elapsed = position.startedAt > 0 ? shown - position.startedAt : 0
+  derive running = position.timed and position.active and not position.over and position.plies > 0
+  derive whiteLeft = position.whiteMs - (running and position.turn == "w" ? shown - position.lastMoveAt : 0)
+  derive blackLeft = position.blackMs - (running and position.turn == "b" ? shown - position.lastMoveAt : 0)
+  derive yourLeft = position.you == "w" ? whiteLeft : blackLeft
+  derive theirLeft = position.you == "w" ? blackLeft : whiteLeft
+  derive onGame = top(nav).name == "game"
+  derive todayMarks = marksFor(summary.days, today)
+
+  task minute mount
+    every(30000, tick)
+  task scheme mount
+    after(1, applyScheme)
+  task gameClock when onGame and position.active and not position.over
+    every(250, tick)
+
+  // Time
+
+  action tick
+    now = performanceNow()
+    if running and (whiteLeft <= 0 or blackLeft <= 0) and not pending(flagged)
+      send flagged = flagGame(time.epochAtZero + performanceNow(), today)
+  action applyScheme
+    setScheme(scheme)
+    now = performanceNow()
+
+  // Onboarding
+
+  action next
+    step = step + 1
+    if haptics
+      haptic("selection")
+  action previous
+    step = max(step - 1, 0)
+  action finishOnboarding(remind: bool)
+    reminder = remind
+    onboarded = true
+    step = 0
+    if haptics
+      haptic("success")
+
+  // Settings
+
+  action pickLevel(l: string)
+    level = l
+  action pickSide(s: string)
+    side = s
+  action pickScheme(s: string)
+    scheme = s
+    setScheme(s)
+  action pickTimeControl(t: string)
+    timeControl = t
+  action pickIcon(i: string)
+    appIcon = i
+  action pickReminderTime(t: string)
+    reminderTime = t
+  action toggleHaptics
+    haptics = not haptics
+  action toggleSounds
+    sounds = not sounds
+  action toggleCoords
+    coords = not coords
+  action toggleMoves
+    showMoves = not showMoves
+  action toggleQueen
+    autoQueen = not autoQueen
+  action toggleReminder
+    reminder = not reminder
+  action pickDay(k: string)
+    selectedDay = k == today ? "" : k
+
+  // Navigation
+
+  action follow(url: string)
+    nav = go(nav, url)
+  action back
+    nav = back(nav)
+  action open(url: string)
+    nav = push(nav, url)
+  action openLevel
+    nav = push(push(nav, "/settings"), "/settings/difficulty")
+
+  // A game
+
+  action play
+    selected = ""
+    if position.active and not position.over
+      nav = push(nav, "/game")
+    else
+      send started = newGame(side, level, timeControl, time.epochAtZero + performanceNow())
+      nav = push(nav, "/game")
+  action again
+    selected = ""
+    send started = newGame(side, level, timeControl, time.epochAtZero + performanceNow())
+  action afterMove
+    selected = ""
+    match moved
+      case some(r)
+        if r.ok and r.engineTurn
+          send replied = engineMove(time.epochAtZero + performanceNow(), today)
+      case none
+        selected = ""
+    match started
+      case some(r)
+        if r.ok and r.engineTurn and not pending(replied)
+          send replied = engineMove(time.epochAtZero + performanceNow(), today)
+      case none
+        selected = ""
+  action afterReply
+    if haptics
+      haptic("impact-soft")
+  action resign
+    send resigned = resignGame(time.epochAtZero + performanceNow(), today)
+  action submit(f: string, t: string, promo: string)
+    selected = ""
+    promoFrom = ""
+    promoTo = ""
+    if haptics
+      haptic("impact-light")
+    send moved = playMove(f, t, promo, time.epochAtZero + performanceNow(), today)
+  action attempt(f: string, t: string)
+    if needsPromotion(position.moves, f, t) and not autoQueen
+      promoFrom = f
+      promoTo = t
+      selected = ""
+    else if needsPromotion(position.moves, f, t)
+      submit(f, t, "q")
+    else
+      submit(f, t, "")
+  action cancelPromotion
+    promoFrom = ""
+    promoTo = ""
+
+  // Pointer input: a tap selects or moves, a drag past 8 points carries the piece.
+
+  action down(i: number, id: string, piece: string, e: PointerEvent)
+    let g = measure("board")
+    cell = g.width / 8
+    dragging = false
+    gx = col(i) * (g.width / 8) + e.offsetX
+    gy = row(i) * (g.width / 8) + e.offsetY
+    if yourTurn and piece != "" and piece.startsWith(position.you)
+      from = i
+    else
+      from = -1
+  action move(i: number, e: PointerEvent)
+    if from >= 0
+      let dx = e.offsetX - cell / 2
+      let dy = e.offsetY - cell / 2
+      gx = col(i) * cell + e.offsetX
+      gy = row(i) * cell + e.offsetY
+      if not dragging and dx * dx + dy * dy > 64
+        dragging = true
+        selected = squareId(i, position.you)
+  action up(i: number, id: string, piece: string, e: PointerEvent)
+    let tc = col(i) + floor(e.offsetX / cell)
+    let tr = row(i) + floor(e.offsetY / cell)
+    let dropped = tc >= 0 and tc < 8 and tr >= 0 and tr < 8 ? squareId(tr * 8 + tc, position.you) : ""
+    let wasDragging = dragging
+    from = -1
+    dragging = false
+    if wasDragging
+      if dropped != "" and isLegal(position.moves, id, dropped)
+        attempt(id, dropped)
+      else
+        selected = ""
+    else
+      tap(id, piece)
+  action tap(id: string, piece: string)
+    if selected != "" and isLegal(position.moves, selected, id)
+      attempt(selected, id)
+    else if yourTurn and piece != "" and piece.startsWith(position.you) and selected != id
+      selected = id
+      if haptics
+        haptic("selection")
+    else
+      selected = ""
+
+  view
+    main navigationKey=`${top(nav).id}` navigationBack="back" navigate=follow width="100%" height="100%"
+      font-family="ui-rounded, Nunito, system-ui" testId="root"
+      for e in stack(nav) key=e.id
+        if e.name == "home"
+          if onboarded
+            column navigationKey=`${e.id}` navigationBar="none" position="absolute" inset=0
+              background-color="surface.ground" color="ink"
+              column flex=1 min-height=0 padding="8px 20px 0 20px" gap=18 box-sizing="border-box"
+                row align-items="center" gap=10 testId="top-bar"
+                  IconButton(symbol=levelSymbol(level), label=`Level: ${levelName(level)}`, filled=true, press=openLevel, testId="level")
+                  IconButton(symbol="symbol:icon.laurel", label=`${summary.streak}-day streak`, filled=false, press=open("/settings"), testId="streak")
+                  IconButton(symbol="symbol:icon.trophy", label="Awards", filled=false, press=open("/settings"), testId="awards")
+                  view flex=1
+                  IconButton(symbol="symbol:icon.stats", label="Stats", filled=false, press=open("/settings"), testId="stats")
+                  IconButton(symbol="symbol:icon.gear", label="Settings", filled=false, press=open("/settings"), testId="settings")
+                column flex=1 min-height=0 background-color="surface.card" border-radius=36 padding="32px 24px 24px 24px"
+                  box-sizing="border-box" align-items="center" gap=0 box-shadow="0 18px 50px shadow.card" testId="card"
+                  animation=(still ? "none" : "rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both")
+                  for d in strip.filter(x => x.key == day) key=d.key
+                    text d.long font-size=46 font-weight=800 letter-spacing="-1.5px"
+                      color="ink.faint" line-height=1 testId="weekday"
+                    text d.monthDay font-size=46 font-weight=800 letter-spacing="-1.5px"
+                      line-height=1.05 testId="date"
+                  row align-items="center" gap=8 margin-top=14
+                    view width=10 height=10 border-radius=5 background-color=(position.active and not position.over ? "status.live" : "ink.faint")
+                    text (position.active and not position.over ? (yourTurn ? "Game in progress · your move" : "Game in progress") : `${levelName(level)} · ${tcName(timeControl)}`)
+                      font-size=15 font-weight=600 color="ink.muted" testId="status"
+                  view flex=1 min-height=24
+                  view position="relative" width="78%" max-width=300 rotate="-2deg"
+                    MiniBoard(squares=position.squares, pieces=position.pieces)
+                    view position="absolute" inset=0 display="flex" align-items="center" justify-content="center"
+                      InkPill(label=(position.active and not position.over ? "Continue" : "Play"), symbol="symbol:play-fill", press=play, testId="play")
+                  view flex=1 min-height=24
+                  row role="radiogroup" aria-label="Play as" background-color="surface.raised" border-radius=22 padding=4 gap=4
+                    opacity=(position.active and not position.over ? 0.4 : 1)
+                    for s in ["white", "random", "black"] key=s
+                      button role="radio" aria-checked=(side == s) press=pickSide(s) testId=`side-${s}`
+                        disabled=(position.active and not position.over) -exact-press-haptic="selection"
+                        display="flex" align-items="center" justify-content="center" gap=6 height=40 padding="0 16px" border-radius=18
+                        background-color=(side == s ? "surface.card" : "transparent") color="ink"
+                        box-shadow=(side == s ? "0 2px 8px shadow.card" : "0 0 0 transparent")
+                        transition="background-color 180ms ease"
+                        view width=12 height=12 border-radius=6 box-sizing="border-box" border="1.5px solid ink"
+                          background-color=(s == "black" ? "ink.fill" : s == "white" ? "surface.card" : "ink.faint")
+                        text (s == "white" ? "White" : s == "black" ? "Black" : "Random") font-size=15 font-weight=700
+                button press=open("/settings") testId="puzzle" -exact-press-haptic="selection"
+                  display="flex" flex-direction="row" align-items="center" gap=14 padding="14px 18px" border-radius=24
+                  background-color="surface.card" color="ink" box-shadow="0 6px 20px shadow.card"
+                  view width=40 height=40 border-radius=20 background-color="surface.raised" display="flex" align-items="center" justify-content="center"
+                    image "symbol:icon.puzzle" font-size=17 aria-hidden=true
+                  column flex=1 gap=2 align-items="flex-start"
+                    text "Daily puzzle" font-size=17 font-weight=700
+                    text `${levelName(level)} · one move to find` font-size=14 color="ink.muted"
+                  text (todayMarks == 2 ? "Solved" : "Solve") font-size=15 font-weight=700 color="accent.fill"
+                row justify-content="space-between" padding-bottom=8 testId="days"
+                  for d in strip key=d.key
+                    DayCell(short=d.short, number=d.number, selected=(d.key == day), marks=marksFor(summary.days, d.key), future=d.future, press=pickDay(d.key), testId=`day-${d.key}`)
+          else
+            column navigationKey=`${e.id}` navigationBar="none" position="absolute" inset=0
+              background-color="surface.ground" color="ink" padding="0 14px 14px 14px" box-sizing="border-box" justify-content="flex-end"
+              column background-color="surface.card" border-radius=40 padding="28px 22px 22px 22px" gap=12
+                box-shadow="0 18px 50px shadow.card" min-height="72%" box-sizing="border-box" testId="onboarding"
+                animation=(still ? "none" : "rise 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both")
+                column align-items="center" gap=14
+                  view width=64 height=64 border-radius=18 background-color="surface.card" box-shadow="0 4px 18px shadow.card"
+                    display="flex" align-items="center" justify-content="center" padding=8 box-sizing="border-box"
+                    image "assets/pieces/wN.svg" width=46 height=46 object-fit="contain" aria-hidden=true
+                if step == 0
+                  column flex=1 align-items="center" justify-content="center" gap=10 text-align="center"
+                    animation=(still ? "none" : "fade 260ms ease both")
+                    text "Chess" role="heading" aria-level=1 font-size=40 font-weight=800 letter-spacing="-1px"
+                    text "One calm game a day. Play the computer, solve a puzzle, keep your streak." font-size=18 line-height=1.35 color="ink.muted" max-width=300
+                if step == 1
+                  column flex=1 gap=10 animation=(still ? "none" : "fade 260ms ease both")
+                    text "Pick your level" role="heading" aria-level=1 font-size=24 font-weight=800 text-align="center" margin-bottom=6
+                    column role="radiogroup" aria-label="Level" gap=10
+                      for l in ["easy", "medium", "hard", "expert", "master"] key=l
+                        LevelOption(name=levelName(l), symbol=levelSymbol(l), detail=levelDetail(l), selected=(level == l), press=pickLevel(l), testId=`level-${l}`)
+                if step == 2
+                  column flex=1 gap=14 align-items="center" text-align="center" animation=(still ? "none" : "fade 260ms ease both")
+                    view flex=1
+                    image "symbol:icon.bell" font-size=40 color="accent.fill" aria-hidden=true
+                    text "A daily nudge?" role="heading" aria-level=1 font-size=28 font-weight=800
+                    text "One reminder a day, when your game and puzzle are waiting." font-size=17 line-height=1.35 color="ink.muted" max-width=300
+                    row role="radiogroup" aria-label="Reminder time" gap=8 flex-wrap="wrap" justify-content="center" margin-top=6
+                      for t in ["8:00", "9:00", "12:00", "18:00", "21:00"] key=t
+                        Chip(label=t, selected=(reminderTime == t), press=pickReminderTime(t), testId=`remind-${t}`)
+                    view flex=1
+                row gap=12 align-items="center" margin-top=4
+                  if step > 0
+                    button press=previous aria-label="Back" testId="onboarding-back" -exact-press-haptic="selection"
+                      width=56 height=56 border-radius=28 background-color="surface.raised" color="ink"
+                      display="flex" align-items="center" justify-content="center" flex-shrink=0
+                      image "symbol:icon.arrow-left" font-size=19 font-weight=700 aria-hidden=true
+                  if step < 2
+                    button press=next testId="continue" flex=1 height=56 border-radius=20 background-color="ink.fill" color="ink.on-fill"
+                      display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-light"
+                      text "Continue" font-size=19 font-weight=700
+                  else
+                    column flex=1 gap=8
+                      button press=finishOnboarding(true) testId="remind" height=56 border-radius=20 background-color="ink.fill" color="ink.on-fill"
+                        display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-light"
+                        text "Remind me" font-size=19 font-weight=700
+                      button press=finishOnboarding(false) testId="not-now" height=40 color="ink.muted" background-color="transparent" border="none"
+                        display="flex" align-items="center" justify-content="center"
+                        text "Not now" font-size=16 font-weight=600
+
+        if e.name == "settings"
+          column navigationKey=`${e.id}` navigationPresentation="modal" navigationDetent="72% large" navigationGrabber="visible"
+            navigationBar="none" border-radius=36 position="absolute" inset=0 background-color="surface.card" color="ink"
+            scroll flex=1 min-height=0
+              column padding="28px 20px 32px 20px" gap=8
+                column background-color="accent.fill" color="ink.on-accent" border-radius=26 padding="22px 20px" align-items="center" gap=6
+                  box-shadow="0 12px 30px shadow.accent" margin-bottom=12 testId="level-banner"
+                  row align-items="center" gap=8
+                    image levelSymbol(level) font-size=18 aria-hidden=true
+                    text levelName(level) font-size=24 font-weight=800
+                  text `${summary.streak == 0 ? "No streak yet" : `${summary.streak}-day streak`} · ${levelDetail(level)}` font-size=16 text-align="center" opacity=0.9
+                  button press=open("/settings/difficulty") testId="change-level" margin-top=10
+                    display="flex" align-items="center" gap=8 height=52 padding="0 26px" border-radius=26
+                    background-color="surface.card" color="ink" -exact-press-haptic="selection"
+                    text "Change level" font-size=18 font-weight=700
+                SettingsRow(symbol="symbol:star-fill", title="Difficulty", press=open("/settings/difficulty"), testId="row-difficulty")
+                SettingsRow(symbol="symbol:icon.contrast", title="App Settings", press=open("/settings/app"), testId="row-app")
+                SettingsRow(symbol="symbol:icon.board", title="Game Settings", press=open("/settings/game"), testId="row-game")
+                SettingsRow(symbol="symbol:notifications-fill", title="Notifications", press=open("/settings/notifications"), testId="row-notifications")
+                SettingsRow(symbol="symbol:icon.feedback", title="Feedback and more", press=open("/settings/about"), testId="row-about")
+
+        if e.name == "difficulty"
+          column navigationKey=`${e.id}` navigationBar="none" position="absolute" inset=0 background-color="surface.card" color="ink"
+            SheetHeader(title="Difficulty", back=back)
+            scroll flex=1 min-height=0
+              column role="radiogroup" aria-label="Level" gap=10 padding="12px 20px 32px 20px"
+                for l in ["easy", "medium", "hard", "expert", "master"] key=l
+                  LevelOption(name=levelName(l), symbol=levelSymbol(l), detail=levelDetail(l), selected=(level == l), press=pickLevel(l), testId=`pick-${l}`)
+                text "Changes the computer's strength and the daily puzzle from your next game."
+                  font-size=14 color="ink.muted" text-align="center" margin-top=8
+
+        if e.name == "appSettings"
+          column navigationKey=`${e.id}` navigationBar="none" position="absolute" inset=0 background-color="surface.card" color="ink"
+            SheetHeader(title="App Settings", back=back)
+            scroll flex=1 min-height=0
+              column gap=0 padding="12px 20px 32px 20px"
+                row role="radiogroup" aria-label="Appearance" background-color="surface.raised" border-radius=28 padding=5 gap=4 testId="scheme"
+                  for s in ["light", "system", "dark"] key=s
+                    button role="radio" aria-checked=(scheme == s) press=pickScheme(s) testId=`scheme-${s}`
+                      aria-label=(s == "light" ? "Light" : s == "dark" ? "Dark" : "Automatic") -exact-press-haptic="selection"
+                      flex=(scheme == s ? 1.6 : 1) display="flex" align-items="center" justify-content="center" gap=8 height=50 border-radius=24
+                      background-color=(scheme == s ? "surface.card" : "transparent") color="ink"
+                      box-shadow=(scheme == s ? "0 2px 10px shadow.card" : "0 0 0 transparent")
+                      -exact-layout-transition=(still ? "none" : "280ms cubic-bezier(0.2, 0.8, 0.2, 1)")
+                      image (s == "light" ? "symbol:icon.sun" : s == "dark" ? "symbol:icon.moon" : "symbol:icon.contrast") font-size=18 aria-hidden=true
+                      if scheme == s
+                        text (s == "light" ? "Light" : s == "dark" ? "Dark" : "Auto") font-size=17 font-weight=700
+                view height=1 background-color="hairline" margin="22px 0"
+                text "App Icon" role="heading" aria-level=2 font-size=18 font-weight=700 margin-bottom=14
+                scroll overflow-x="auto" height=110 margin="0 -20px" testId="icons"
+                  row gap=14 padding="6px 20px"
+                    for i in ["classic", "night", "mono"] key=i
+                      button press=pickIcon(i) role="radio" aria-checked=(appIcon == i) aria-label=`${i} icon` testId=`icon-${i}`
+                        position="relative" width=96 height=96 border-radius=24 flex-shrink=0 -exact-press-haptic="selection"
+                        background-color=(i == "night" ? "ink.fill" : "surface.card")
+                        border=(appIcon == i ? "3px solid ink" : "1.5px solid hairline") box-sizing="border-box"
+                        display="flex" align-items="center" justify-content="center"
+                        image (i == "night" ? "assets/pieces/bN.svg" : "assets/pieces/wN.svg") width=58 height=58 object-fit="contain" aria-hidden=true
+                          opacity=(i == "mono" ? 0.5 : 1)
+                        if appIcon == i
+                          view position="absolute" top=-8 right=-8 width=30 height=30 border-radius=15 background-color="ink.fill" color="ink.on-fill"
+                            border="2.5px solid surface.card" display="flex" align-items="center" justify-content="center"
+                            image "symbol:checkmark" font-size=12 font-weight=800 aria-hidden=true
+                view height=1 background-color="hairline" margin="22px 0 6px 0"
+                SwitchRow(symbol="symbol:icon.haptics", title="Haptic Feedback", on=haptics, press=toggleHaptics, testId="haptics")
+                SwitchRow(symbol="symbol:speaker", title="Sounds", on=sounds, press=toggleSounds, testId="sounds")
+
+        if e.name == "gameSettings"
+          column navigationKey=`${e.id}` navigationBar="none" position="absolute" inset=0 background-color="surface.card" color="ink"
+            SheetHeader(title="Game Settings", back=back)
+            scroll flex=1 min-height=0
+              column gap=0 padding="12px 20px 32px 20px"
+                text "Clock" role="heading" aria-level=2 font-size=18 font-weight=700 margin-bottom=12
+                row role="radiogroup" aria-label="Clock" gap=8 flex-wrap="wrap"
+                  for t in ["none", "10+0", "5+3", "3+2"] key=t
+                    Chip(label=tcName(t), selected=(timeControl == t), press=pickTimeControl(t), testId=`tc-${t}`)
+                view height=1 background-color="hairline" margin="22px 0 6px 0"
+                SwitchRow(symbol="symbol:icon.coords", title="Coordinates", on=coords, press=toggleCoords, testId="coords")
+                SwitchRow(symbol="symbol:icon.dot", title="Show Legal Moves", on=showMoves, press=toggleMoves, testId="legal")
+                SwitchRow(symbol="symbol:icon.crown", title="Always Promote to Queen", on=autoQueen, press=toggleQueen, testId="queen")
+
+        if e.name == "notifications"
+          column navigationKey=`${e.id}` navigationBar="none" position="absolute" inset=0 background-color="surface.card" color="ink"
+            SheetHeader(title="Notifications", back=back)
+            scroll flex=1 min-height=0
+              column gap=0 padding="12px 20px 32px 20px"
+                SwitchRow(symbol="symbol:notifications-fill", title="Daily Reminder", on=reminder, press=toggleReminder, testId="reminder")
+                if reminder
+                  row role="radiogroup" aria-label="Reminder time" gap=8 flex-wrap="wrap" margin-top=8
+                    for t in ["8:00", "9:00", "12:00", "18:00", "21:00"] key=t
+                      Chip(label=t, selected=(reminderTime == t), press=pickReminderTime(t), testId=`time-${t}`)
+
+        if e.name == "about"
+          column navigationKey=`${e.id}` navigationBar="none" position="absolute" inset=0 background-color="surface.card" color="ink"
+            SheetHeader(title="Feedback and more", back=back)
+            scroll flex=1 min-height=0
+              column gap=14 padding="12px 24px 32px 24px"
+                text "Chess is free software under the GPLv3." font-size=17 font-weight=600
+                text "Engine: Stockfish 11 (GPLv3). Rules: chess.js (BSD-2). Pieces: cburnett (GPLv2+). Puzzles: the lichess.org database (CC0)."
+                  font-size=15 line-height=1.4 color="ink.muted"
+
+        if e.name == "game"
+          column navigationKey=`${e.id}` navigationPresentation="fullscreen" navigationBar="none" position="absolute" inset=0
+            background-color="surface.card" color="ink" padding="4px 16px 12px 16px" box-sizing="border-box" gap=14 testId="game"
+            row align-items="center" gap=10
+              button id="back" press=back aria-label="Close" testId="close-game" -exact-press-haptic="selection"
+                width=52 height=52 border-radius=26 background-color="surface.raised" color="ink"
+                display="flex" align-items="center" justify-content="center"
+                image "symbol:icon.chevron-down" font-size=19 font-weight=700 aria-hidden=true
+              column flex=1 align-items="center" gap=2
+                text `${levelName(position.level)} · ${position.you == "w" ? "White" : "Black"}` font-size=17 font-weight=700 testId="game-title"
+                row align-items="center" gap=6 color="ink.muted"
+                  image "symbol:circle" font-size=13 aria-hidden=true
+                  text clockText(elapsed) font-size=15 font-weight=600 font-variant-numeric="tabular-nums" testId="elapsed"
+              button commandfor="resign" command="show-modal" aria-label="Resign" testId="open-resign" -exact-press-haptic="selection"
+                disabled=(position.over or not position.active)
+                width=52 height=52 border-radius=26 background-color="surface.raised" color="ink"
+                display="flex" align-items="center" justify-content="center" opacity=(position.over ? 0.35 : 1)
+                image "symbol:icon.flag" font-size=18 aria-hidden=true
+            view flex=1 min-height=8
+            row align-items="center" gap=10 testId="opponent"
+              view width=40 height=40 border-radius=20 background-color="surface.raised" display="flex" align-items="center" justify-content="center"
+                image levelSymbol(position.level) font-size=16 aria-hidden=true
+              column flex=1 gap=2
+                text "Computer" font-size=16 font-weight=700
+                row gap=0 min-height=16
+                  if thinking and not position.over
+                    text "Thinking…" font-size=13 color="ink.muted" animation=(still ? "none" : "fade 600ms ease-in-out infinite alternate")
+                  else
+                    for c in position.takenByThem key=c.key
+                      image pieceSrc(c.code) width=16 height=16 margin-right=-4 aria-hidden=true
+              if position.timed
+                text clockText(theirLeft) font-size=20 font-weight=700 font-variant-numeric="tabular-nums" padding="6px 12px" border-radius=12
+                  background-color=(running and not yourTurn ? "ink.fill" : "surface.raised") color=(running and not yourTurn ? "ink.on-fill" : "ink")
+            view position="relative" width="100%" aspect-ratio=1 id="board" testId="board" border-radius=12 overflow="hidden"
+              box-shadow="0 0 0 1.5px board.edge" touch-action="none"
+              for s in position.squares key=s.id
+                view position="absolute" left=pct(col(s.index)) top=pct(row(s.index)) width="12.5%" height="12.5%" touch-action="none"
+                  background-color=(s.light ? "board.light" : "board.dark") testId=`sq-${s.id}`
+                  pointerdown=down(s.index, s.id, s.piece) pointermove=move(s.index) pointerup=up(s.index, s.id, s.piece)
+                  if s.id == position.lastFrom or s.id == position.lastTo
+                    view position="absolute" inset=0 background-color="board.last" pointer-events="none"
+                  if s.id == selected
+                    view position="absolute" inset=0 background-color="board.select" pointer-events="none"
+                  if s.id == position.check
+                    view position="absolute" inset="8%" border-radius="50%" background-color="board.check" pointer-events="none"
+                      animation=(still ? "none" : "pop 300ms ease both")
+                  if showMoves and targets.includes(s.id)
+                    if s.piece == ""
+                      view position="absolute" left="36%" top="36%" width="28%" height="28%" border-radius="50%" background-color="board.dot" pointer-events="none"
+                    else
+                      view position="absolute" inset="3%" border-radius="50%" border="5px solid board.dot" box-sizing="border-box" pointer-events="none"
+                  if coords and s.rank != ""
+                    text s.rank position="absolute" left=3 top=1 font-size=10 font-weight=700 pointer-events="none"
+                      color=(s.light ? "board.coord.light" : "board.coord.dark")
+                  if coords and s.file != ""
+                    text s.file position="absolute" right=3 bottom=1 font-size=10 font-weight=700 pointer-events="none"
+                      color=(s.light ? "board.coord.light" : "board.coord.dark")
+              for p in position.pieces key=p.key
+                image pieceSrc(p.code) position="absolute" left=pct(col(p.index)) top=pct(row(p.index)) width="12.5%" height="12.5%"
+                  object-fit="contain" pointer-events="none" aria-hidden=true
+                  opacity=(dragging and from == p.index ? 0.3 : 1)
+                  -exact-layout-transition=(still ? "none" : "220ms cubic-bezier(0.2, 0.8, 0.2, 1)")
+                  -exact-exit-animation=(still ? "none" : "fade 160ms ease reverse both")
+              if dragging
+                image pieceSrc(position.squares.filter(q => q.index == from).map(q => q.piece).join("")) position="absolute"
+                  left=gx - cell * 0.75 top=gy - cell * 1.1 width=cell * 1.5 height=cell * 1.5 object-fit="contain"
+                  pointer-events="none" z-index=10 aria-hidden=true
+              if promoTo != ""
+                view position="absolute" inset=0 background-color="hairline" display="flex" align-items="center" justify-content="center" z-index=20
+                  animation=(still ? "none" : "fade 160ms ease both") press=cancelPromotion
+                  row gap=8 padding=10 border-radius=24 background-color="surface.card" box-shadow="0 12px 30px shadow.card"
+                    for k in ["q", "r", "b", "n"] key=k
+                      button press=submit(promoFrom, promoTo, k) aria-label=(k == "q" ? "Queen" : k == "r" ? "Rook" : k == "b" ? "Bishop" : "Knight")
+                        testId=`promote-${k}` width=60 height=60 border-radius=18 background-color="surface.raised"
+                        image pieceSrc(`${position.you}${k.toUpperCase()}`) width=52 height=52 object-fit="contain" aria-hidden=true
+            row align-items="center" gap=10 testId="you"
+              view width=40 height=40 border-radius=20 background-color="accent.soft" color="accent.fill" display="flex" align-items="center" justify-content="center"
+                image "symbol:person-fill" font-size=16 aria-hidden=true
+              column flex=1 gap=2
+                text "You" font-size=16 font-weight=700
+                row gap=0 min-height=16
+                  for c in position.takenByYou key=c.key
+                    image pieceSrc(c.code) width=16 height=16 margin-right=-4 aria-hidden=true
+              if position.timed
+                text clockText(yourLeft) font-size=20 font-weight=700 font-variant-numeric="tabular-nums" padding="6px 12px" border-radius=12
+                  background-color=(running and yourTurn ? "ink.fill" : "surface.raised") color=(running and yourTurn ? "ink.on-fill" : "ink")
+            view flex=1 min-height=8
+            if position.over
+              column align-items="center" gap=14 padding="18px 20px" border-radius=28 background-color="surface.raised" testId="result"
+                animation=(still ? "none" : "rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both")
+                column align-items="center" gap=4
+                  text resultTitle(position.result) role="heading" aria-level=2 font-size=30 font-weight=800 testId="result-title"
+                  text `${position.reason} · ${movesText(ceil(position.plies / 2))}` font-size=15 color="ink.muted"
+                row gap=10
+                  SoftPill(label="Done", symbol="", press=back, testId="done")
+                  InkPill(label="Play again", symbol="symbol:refresh", press=again, testId="again")
+            else
+              text (yourTurn ? (position.check != "" ? "Check. Your move" : "Your move") : "Computer's move") font-size=16 font-weight=600
+                color="ink.muted" text-align="center" min-height=56 padding-top=16 testId="turn"
+            dialog id="resign" role="alertdialog" aria-label="Resign this game?"
+              button press=resign destructive=true commandfor="resign" command="close" testId="confirm-resign"
+                text "Resign"
+              button commandfor="resign" command="close"
+                text "Keep playing"

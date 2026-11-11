@@ -1,0 +1,24 @@
+test "onboarding picks a level, then never shows again"
+  expect tree has "onboarding"
+  tap "continue"
+  tap "level-hard"
+  tap "continue"
+  tap "not-now"
+  expect state onboarded == true
+  expect state level == "hard"
+  expect tree has "card"
+  reload
+  expect tree missing "onboarding"
+
+test "play starts a game as white and a move is answered"
+  tap "continue"
+  tap "continue"
+  tap "not-now"
+  tap "side-white"
+  tap "play"
+  clock data
+  clock settle
+  tap "sq-e2"
+  tap "sq-e4"
+  clock data
+  expect state position.plies == 2

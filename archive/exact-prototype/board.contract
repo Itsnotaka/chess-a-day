@@ -1,0 +1,35 @@
+// Board pieces shared by the home preview and the game: squares and pieces laid out on a
+// 12.5% grid inside a square box. The game's interactive board lives in app.contract,
+// since its handlers are the root's actions.
+
+shape Square
+  id: string
+  index: number
+  light: bool
+  piece: string
+  file: string
+  rank: string
+
+shape Piece
+  key: string
+  code: string
+  index: number
+
+fn col(i: number): number = i - floor(i / 8) * 8
+fn row(i: number): number = floor(i / 8)
+fn pct(n: number): string = `${n * 12.5}%`
+fn pieceSrc(code: string): string = `assets/pieces/${code}.svg`
+
+component MiniBoard
+  props
+    squares: Square[]
+    pieces: Piece[]
+  view
+    view position="relative" width="100%" aspect-ratio=1 border-radius=14 overflow="hidden"
+      box-shadow="0 0 0 1.5px board.edge"
+      for s in squares key=s.id
+        view position="absolute" left=pct(col(s.index)) top=pct(row(s.index)) width="12.5%" height="12.5%"
+          background-color=(s.light ? "board.light" : "board.dark")
+      for p in pieces key=p.key
+        image pieceSrc(p.code) position="absolute" left=pct(col(p.index)) top=pct(row(p.index))
+          width="12.5%" height="12.5%" object-fit="contain" aria-hidden=true
