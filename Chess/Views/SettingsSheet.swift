@@ -6,42 +6,63 @@ enum SettingsPage: String, Identifiable, Hashable {
   var id: Self { self }
 }
 
-/// The settings sheet: a level banner, then rows that push pages with a round Back button.
+/// The settings sheet: a level banner, then rows that open pages with a round Back button.
+/// Pages slide in from the right (and back out to it), and the sheet fits each page's height.
 struct SettingsSheet: View {
   let start: SettingsPage
-  @State private var path: [SettingsPage] = []
+  @State private var page: SettingsPage = .root
+  @State private var forward = true
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
-    NavigationStack(path: $path) {
-      SettingsRoot(path: $path)
-        .navigationDestination(for: SettingsPage.self) { page in
-          SettingsPageView(page: page, path: $path)
+    FittedSheet {
+      ZStack(alignment: .top) {
+        Group {
+          if page == .root {
+            SettingsRoot(open: open)
+          } else {
+            SettingsPageView(page: page, back: back)
+          }
         }
+        .id(page)
+        .transition(reduceMotion ? .opacity : .asymmetric(
+          insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+          removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
+      }
+      .clipped()
     }
-    .onAppear { if start != .root, path.isEmpty { path = [start] } }
+    .onAppear { page = start }
+  }
+
+  private func open(_ next: SettingsPage) {
+    forward = true
+    withAnimation(Theme.sheetResize) { page = next }
+    Haptics.selection()
+  }
+
+  private func back() {
+    forward = false
+    withAnimation(Theme.sheetResize) { page = .root }
   }
 }
 
 private struct SettingsRoot: View {
-  @Binding var path: [SettingsPage]
+  let open: (SettingsPage) -> Void
   @Environment(History.self) private var history
   @AppStorage(Pref.level) private var level = Level.medium
 
   var body: some View {
-    ScrollView {
-      VStack(spacing: 0) {
-        banner.padding(.bottom, 14)
-        row(.difficulty, symbol: "star.fill", title: "Difficulty")
-        row(.app, symbol: "circle.lefthalf.filled", title: "App Settings")
-        row(.game, symbol: "checkerboard.rectangle", title: "Game Settings")
-        row(.notifications, symbol: "bell.badge.fill", title: "Notifications")
-        row(.about, symbol: "bubble.left.fill", title: "Feedback and more")
-      }
-      .padding(.horizontal, 20)
-      .padding(.top, 30)
+    VStack(spacing: 0) {
+      banner.padding(.bottom, 14)
+      row(.difficulty, symbol: "star.fill", title: "Difficulty")
+      row(.app, symbol: "circle.lefthalf.filled", title: "App Settings")
+      row(.game, symbol: "checkerboard.rectangle", title: "Game Settings")
+      row(.notifications, symbol: "bell.badge.fill", title: "Notifications")
+      row(.about, symbol: "bubble.left.fill", title: "Feedback and more")
     }
-    .background(Theme.card)
-    .toolbar(.hidden, for: .navigationBar)
+    .padding(.horizontal, 20)
+    .padding(.top, 30)
+    .padding(.bottom, 12)
   }
 
   private var banner: some View {
@@ -53,7 +74,7 @@ private struct SettingsRoot: View {
       }
       Text(streak == 0 ? "No streak yet" : "\(streak)-day streak")
         .scaledFont(16, .semibold).opacity(0.9)
-      Button { path.append(.difficulty) } label: {
+      Button { open(.difficulty) } label: {
         Text("Change level")
           .scaledFont(18, .bold)
           .multilineTextAlignment(.center)
@@ -61,7 +82,7 @@ private struct SettingsRoot: View {
           .padding(.horizontal, 26)
           .padding(.vertical, 12)
           .frame(minHeight: 52)
-        .background(Theme.card, in: Capsule())
+          .background(Theme.card, in: Capsule())
       }
       .buttonStyle(SoftPress())
       .padding(.top, 10)
@@ -74,36 +95,32 @@ private struct SettingsRoot: View {
   }
 
   private func row(_ page: SettingsPage, symbol: String, title: String) -> some View {
-    Button { path.append(page) } label: { SettingsRowLabel(symbol: symbol, title: title) }
+    Button { open(page) } label: { SettingsRowLabel(symbol: symbol, title: title) }
       .buttonStyle(SoftPress())
   }
 }
 
 private struct SettingsPageView: View {
   let page: SettingsPage
-  @Binding var path: [SettingsPage]
+  let back: () -> Void
 
   var body: some View {
     VStack(spacing: 0) {
-      SheetHeader(title: title) { _ = path.popLast() }
-      ScrollView {
-        Group {
-          switch page {
-          case .root: EmptyView()
-          case .difficulty: DifficultyPage()
-          case .app: AppSettingsPage()
-          case .game: GameSettingsPage()
-          case .notifications: NotificationsPage()
-          case .about: AboutPage()
-          }
+      SheetHeader(title: title, back: back)
+      Group {
+        switch page {
+        case .root: EmptyView()
+        case .difficulty: DifficultyPage()
+        case .app: AppSettingsPage()
+        case .game: GameSettingsPage()
+        case .notifications: NotificationsPage()
+        case .about: AboutPage()
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 32)
       }
+      .padding(.horizontal, 20)
+      .padding(.top, 12)
+      .padding(.bottom, 24)
     }
-    .background(Theme.card)
-    .toolbar(.hidden, for: .navigationBar)
   }
 
   private var title: String {
@@ -143,7 +160,6 @@ private struct AppSettingsPage: View {
   @AppStorage(Pref.haptics) private var haptics = true
   @AppStorage(Pref.sounds) private var sounds = true
   @State private var current = AppIcon.current
-  @Namespace private var thumb
 
   /// The check moves only once iOS confirms the new icon.
   private func choose(_ icon: AppIcon) {
@@ -157,31 +173,13 @@ private struct AppSettingsPage: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      HStack(spacing: 4) {
-        ForEach(Appearance.allCases) { option in
-          let chosen = appearance == option
-          Button {
-            withAnimation(Theme.spring) { appearance = option }
-            Haptics.selection()
-          } label: {
-            HStack(spacing: 8) {
-              Image(systemName: option.symbol).scaledFont(17, .bold)
-              if chosen { Text(option.name).scaledFont(17, .bold) }
-            }
-            .foregroundStyle(Theme.ink)
-            .frame(maxWidth: chosen ? .infinity : 64)
-            .frame(height: 50)
-            .background {
-              if chosen {
-                Capsule().fill(Theme.card).softShadow(radius: 8, y: 3).matchedGeometryEffect(id: "thumb", in: thumb)
-              }
-            }
-          }
-          .buttonStyle(.plain)
+      PillSegments(options: Appearance.allCases, selection: $appearance, height: 50, name: \.name) { option, active in
+        HStack(spacing: 8) {
+          Image(systemName: option.symbol).font(.system(size: 17, weight: .bold))
+          Text(option.name).scaledFont(17, .bold).lineLimit(1)
         }
+        .foregroundStyle(active ? Theme.ink : Theme.inkMuted)
       }
-      .padding(5)
-      .background(Theme.raised, in: Capsule())
 
       Hairline().padding(.vertical, 22)
 
@@ -381,7 +379,7 @@ private struct ThemeChoice<Tile: View>: View {
 
 private struct NotificationsPage: View {
   @AppStorage(Pref.reminder) private var reminder = false
-  @AppStorage(Pref.reminderHour) private var reminderHour = 9
+  @AppStorage(Pref.reminderMinute) private var reminderMinute = ReminderTime.defaultMinute
   @Environment(\.scenePhase) private var scenePhase
   @State private var permission = Reminders.Permission.unknown
 
@@ -407,14 +405,17 @@ private struct NotificationsPage: View {
       ToggleRow(symbol: "bell.badge.fill", title: "Daily Reminder", isOn: Binding(get: { reminder }, set: turn))
         .disabled(permission == .blocked)
       if reminder {
-        ReminderHours(hour: $reminderHour).transition(.opacity)
+        ReminderTime(minute: $reminderMinute) { minute in
+          Task { _ = await Reminders.enable(minute: minute) }
+        }
+        .padding(.top, 6)
+        .transition(.opacity.combined(with: .move(edge: .top)))
       }
     }
     .animation(Theme.spring, value: reminder)
     .animation(Theme.spring, value: permission)
     .task { await refresh() }
     .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await refresh() } } }
-    .onChange(of: reminderHour) { _, hour in if reminder { Task { _ = await Reminders.enable(hour: hour) } } }
   }
 
   private func turn(_ on: Bool) {
@@ -424,7 +425,7 @@ private struct NotificationsPage: View {
       return
     }
     Task {
-      reminder = await Reminders.enable(hour: reminderHour)
+      reminder = await Reminders.enable(minute: reminderMinute)
       await refresh()
     }
   }

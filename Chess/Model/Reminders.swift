@@ -16,7 +16,8 @@ enum Reminders {
   }
 
   /// Asks if needed, then schedules; false when the person or iOS said no.
-  static func enable(hour: Int) async -> Bool {
+  /// `minute` counts from midnight: 540 is 9:00.
+  static func enable(minute: Int) async -> Bool {
     let center = UNUserNotificationCenter.current()
     let allowed: Bool = switch await permission() {
     case .allowed: true
@@ -29,7 +30,7 @@ enum Reminders {
     content.title = "Your game is waiting"
     content.body = "A calm game against the computer is ready when you are."
     content.sound = .default
-    let trigger = UNCalendarNotificationTrigger(dateMatching: DateComponents(hour: hour, minute: 0), repeats: true)
+    let trigger = UNCalendarNotificationTrigger(dateMatching: DateComponents(hour: minute / 60, minute: minute % 60), repeats: true)
     try? await center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
     return true
   }

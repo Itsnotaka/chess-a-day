@@ -6,7 +6,7 @@ struct OnboardingView: View {
   @AppStorage(Pref.onboarded) private var onboarded = false
   @AppStorage(Pref.level) private var level = Level.medium
   @AppStorage(Pref.reminder) private var reminder = false
-  @AppStorage(Pref.reminderHour) private var reminderHour = 9
+  @AppStorage(Pref.reminderMinute) private var reminderMinute = ReminderTime.defaultMinute
   @State private var step = 0
   @State private var forward = true
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -109,7 +109,7 @@ struct OnboardingView: View {
         .foregroundStyle(Theme.inkMuted)
         .multilineTextAlignment(.center)
         .frame(maxWidth: 300)
-      ReminderHours(hour: $reminderHour).padding(.top, 6)
+      ReminderTime(minute: $reminderMinute).padding(.top, 6)
     }
   }
 
@@ -130,7 +130,12 @@ struct OnboardingView: View {
         }
       } else {
         VStack(spacing: 6) {
-          InkPill(title: "Remind me", fullWidth: true) { finish(remind: true) }
+          MorphPill(title: "Remind me", doneTitle: "Reminder set", action: {
+            await Reminders.enable(minute: reminderMinute)
+          }, finished: { allowed in
+            reminder = allowed
+            onboarded = true
+          })
           Button("Not now") { finish(remind: false) }
             .scaledFont(16, .semibold)
             .foregroundStyle(Theme.inkMuted)
@@ -142,15 +147,8 @@ struct OnboardingView: View {
 
   private func finish(remind: Bool) {
     Haptics.finish(won: true)
-    guard remind else {
-      reminder = false
-      onboarded = true
-      return
-    }
-    Task {
-      reminder = await Reminders.enable(hour: reminderHour)
-      onboarded = true
-    }
+    reminder = remind
+    onboarded = true
   }
 }
 
@@ -194,19 +192,38 @@ struct AppMark: View {
   }
 }
 
-/// The reminder hours as chips.
-struct ReminderHours: View {
-  @Binding var hour: Int
-  static let hours = [8, 9, 12, 18, 21]
+/// The reminder's time: a large readout over a slider in quarter hours, 5 AM to 11 PM. Each step
+/// ticks; `committed` runs when the finger lifts, so the reminder is rescheduled once.
+struct ReminderTime: View {
+  @Binding var minute: Int
+  var committed: (Int) -> Void = { _ in }
+
+  static let defaultMinute = 9 * 60
+  private static let range = 5.0 * 60 ... 23.0 * 60
 
   var body: some View {
-    FlowLayout(spacing: 8) {
-      ForEach(Self.hours, id: \.self) { option in
-        Chip(title: "\(option):00", selected: hour == option) {
-          withAnimation(Theme.spring) { hour = option }
-          Haptics.selection()
-        }
-      }
+    VStack(spacing: 10) {
+      Text(Self.label(minute))
+        .scaledFont(34, .heavy)
+        .monospacedDigit()
+        .contentTransition(.numericText())
+        .foregroundStyle(Theme.ink)
+        .animation(.snappy(duration: 0.2), value: minute)
+      Slider(
+        value: Binding(get: { Double(minute) }, set: { minute = Int($0) }),
+        in: Self.range, step: 15,
+        label: { Text("Reminder time") },
+        minimumValueLabel: { Text("5 AM").scaledFont(13, .semibold).foregroundStyle(Theme.inkMuted) },
+        maximumValueLabel: { Text("11 PM").scaledFont(13, .semibold).foregroundStyle(Theme.inkMuted) },
+        onEditingChanged: { editing in if !editing { committed(minute) } })
+        .tint(Theme.ink)
+        .accessibilityValue(Self.label(minute))
     }
+    .onChange(of: minute) { Haptics.selection() }
+  }
+
+  static func label(_ minute: Int) -> String {
+    let date = Calendar.current.date(from: DateComponents(hour: minute / 60, minute: minute % 60)) ?? .now
+    return date.formatted(date: .omitted, time: .shortened)
   }
 }

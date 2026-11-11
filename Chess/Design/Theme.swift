@@ -48,6 +48,8 @@ enum Theme {
   /// Sudoku a Day's `--spring-standard`: a short spring that overshoots a touch.
   static let spring = Animation.spring(response: 0.32, dampingFraction: 0.72)
   static let pieceSlide = Animation.spring(response: 0.26, dampingFraction: 0.86)
+  /// A sheet growing or shrinking to fit a new page.
+  static let sheetResize = Animation.spring(response: 0.42, dampingFraction: 0.86)
 }
 
 extension Color {

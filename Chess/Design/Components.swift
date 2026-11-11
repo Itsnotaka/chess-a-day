@@ -238,3 +238,163 @@ struct SectionLabel: View {
 struct Hairline: View {
   var body: some View { Theme.hairline.frame(height: 1) }
 }
+
+/// A segmented pill, masked like a good tab bar: the labels are drawn twice, muted underneath
+/// and active on top, and the active copy shows only through the sliding thumb, so a label
+/// changes colour exactly where the thumb covers it. The thumb follows a dragging finger
+/// continuously and snaps to the nearest segment on lift; a tap lands on lift, as
+/// UISegmentedControl does. VoiceOver meets it as a standard segmented picker.
+struct PillSegments<Option: Hashable, Label: View>: View {
+  let options: [Option]
+  @Binding var selection: Option
+  var height: CGFloat = 40
+  let name: (Option) -> String
+  /// One segment's content; `active` is true in the copy the thumb reveals.
+  @ViewBuilder let label: (Option, Bool) -> Label
+
+  @GestureState private var pressing = false
+  @State private var dragX: CGFloat?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  private var motion: Animation {
+    reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.8)
+  }
+
+  var body: some View {
+    GeometryReader { proxy in
+      let width = proxy.size.width / CGFloat(max(options.count, 1))
+      let index = CGFloat(options.firstIndex(of: selection) ?? 0)
+      let thumbX = dragX ?? index * width
+      let thumb = Capsule()
+        .frame(width: width, height: proxy.size.height)
+        .scaleEffect(pressing && dragX == nil && !reduceMotion ? 0.94 : 1)
+        .offset(x: thumbX)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+
+      ZStack(alignment: .leading) {
+        thumb.foregroundStyle(Theme.card).shadow(color: Theme.shadow, radius: 6, y: 2)
+        row(width: width, height: proxy.size.height, active: false)
+        row(width: width, height: proxy.size.height, active: true)
+          .mask { thumb }
+      }
+      .contentShape(Rectangle())
+      .gesture(
+        DragGesture(minimumDistance: 0)
+          .updating($pressing) { _, state, _ in state = true }
+          .onChanged { value in
+            guard abs(value.translation.width) > 6 else { return }
+            // The thumb rides under the finger, kept inside the track.
+            dragX = min(max(value.location.x - width / 2, 0), proxy.size.width - width)
+            let nearest = segment(at: value.location.x, width: width)
+            if options[nearest] != selection {
+              selection = options[nearest]
+              Haptics.selection()
+            }
+          }
+          .onEnded { value in
+            let chosen = options[segment(at: value.location.x, width: width)]
+            withAnimation(motion) {
+              dragX = nil
+              if chosen != selection {
+                selection = chosen
+                Haptics.selection()
+              }
+            }
+          })
+    }
+    .frame(height: height)
+    .padding(4)
+    .background(Theme.raised, in: Capsule())
+    .animation(dragX == nil ? motion : nil, value: selection)
+    .animation(motion, value: pressing)
+    .accessibilityRepresentation {
+      Picker("", selection: $selection) {
+        ForEach(options, id: \.self) { Text(name($0)).tag($0) }
+      }
+      .pickerStyle(.segmented)
+    }
+  }
+
+  private func row(width: CGFloat, height: CGFloat, active: Bool) -> some View {
+    HStack(spacing: 0) {
+      ForEach(options, id: \.self) { option in
+        label(option, active).frame(width: width, height: height)
+      }
+    }
+    .allowsHitTesting(false)
+  }
+
+  private func segment(at x: CGFloat, width: CGFloat) -> Int {
+    min(max(Int(x / width), 0), options.count - 1)
+  }
+}
+
+/// A pill that morphs through an async action: its label, a spinner as the pill draws in to a
+/// circle, then a check with `doneTitle`, then `finished`. Like a well-made Save button.
+struct MorphPill: View {
+  let title: String
+  let doneTitle: String
+  var symbol: String?
+  let action: () async -> Bool
+  var finished: (Bool) -> Void = { _ in }
+
+  private enum Phase { case idle, working, done }
+  @State private var phase = Phase.idle
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    Button {
+      guard phase == .idle else { return }
+      Haptics.tap()
+      withAnimation(motion) { phase = .working }
+      Task {
+        let started = ContinuousClock.now
+        let ok = await action()
+        // A spinner that flashes for a frame reads as a glitch: hold it a beat.
+        let shown = ContinuousClock.now - started
+        if shown < .milliseconds(450) { try? await Task.sleep(for: .milliseconds(450) - shown) }
+        guard ok else {
+          withAnimation(motion) { phase = .idle }
+          finished(false)
+          return
+        }
+        withAnimation(motion) { phase = .done }
+        Haptics.finish(won: true)
+        try? await Task.sleep(for: .milliseconds(700))
+        finished(true)
+      }
+    } label: {
+      ZStack {
+        switch phase {
+        case .idle:
+          HStack(spacing: 10) {
+            if let symbol { Image(systemName: symbol).scaledFont(17, .bold) }
+            Text(title).scaledFont(19, .bold)
+          }
+          .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        case .working:
+          ProgressView().tint(Theme.onInk).transition(.opacity)
+        case .done:
+          HStack(spacing: 8) {
+            Image(systemName: "checkmark").scaledFont(17, .heavy)
+              .transition(.scale.combined(with: .opacity))
+            Text(doneTitle).scaledFont(19, .bold)
+          }
+          .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        }
+      }
+      .foregroundStyle(Theme.onInk)
+      .padding(.horizontal, phase == .working ? 0 : 28)
+      .frame(width: phase == .working ? 56 : nil, height: 56)
+      .frame(maxWidth: phase == .working ? 56 : .infinity)
+      .background(Theme.ink, in: Capsule())
+    }
+    .buttonStyle(SoftPress())
+    .disabled(phase != .idle)
+    .accessibilityLabel(phase == .done ? doneTitle : title)
+  }
+
+  private var motion: Animation {
+    reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.78)
+  }
+}

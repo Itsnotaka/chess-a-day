@@ -8,7 +8,6 @@ struct HomeView: View {
   @Environment(OnlineGames.self) private var online
   @Environment(History.self) private var history
   @AppStorage(Pref.level) private var level = Level.medium
-  @AppStorage(Pref.side) private var side = SidePreference.white.rawValue
   @AppStorage(Pref.timeControl) private var timeControl = TimeControl.none
 
   @State private var day = Date.now
@@ -41,10 +40,6 @@ struct HomeView: View {
     .background(Theme.ground.ignoresSafeArea())
     .sheet(item: $settings) { page in
       SettingsSheet(start: page)
-        .presentationDetents([.fraction(0.74), .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(Theme.Radius.card)
-        .presentationBackground(Theme.card)
     }
     // Game Center opened a game (an invite sent or accepted, a turn notification tapped): show it.
     .onChange(of: online.presentRequest) {
@@ -57,18 +52,10 @@ struct HomeView: View {
       Text(online.problem ?? "")
     }
     .sheet(isPresented: $showingStreak) {
-      StreakSheet()
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(Theme.Radius.card)
-        .presentationBackground(Theme.card)
+      FittedSheet { StreakSheet() }
     }
     .sheet(isPresented: $showingStats) {
-      StatsSheet()
-        .presentationDetents([.fraction(0.74), .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(Theme.Radius.card)
-        .presentationBackground(Theme.card)
+      FittedSheet { StatsSheet() }
     }
     .fullScreenCover(item: $playing) { mode in
       GameView().environment(games.store(mode))
@@ -142,7 +129,7 @@ struct HomeView: View {
           .foregroundStyle(Theme.ink)
           .frame(height: 48)
       } else {
-        SidePicker(side: $side)
+        SidePicker()
       }
     }
     .padding(.horizontal, 24)
@@ -201,7 +188,8 @@ struct HomeView: View {
   private func play() {
     Haptics.tap()
     if !game.active {
-      game.newGame(side: SidePreference(rawValue: side) ?? .white, level: level, timeControl: timeControl)
+      let side = SidePreference(rawValue: UserDefaults.standard.string(forKey: Pref.side) ?? "") ?? .white
+      game.newGame(side: side, level: level, timeControl: timeControl)
     }
     playing = .computer
   }
@@ -255,39 +243,22 @@ struct TileLabel: View {
   }
 }
 
-/// White · Random · Black, a segmented pill.
+/// White · Random · Black. It owns the stored choice, so a tap redraws only this control.
 struct SidePicker: View {
-  @Binding var side: String
-  @Namespace private var thumb
+  @AppStorage(Pref.side) private var side = SidePreference.white
 
   var body: some View {
-    HStack(spacing: 4) {
-      ForEach(SidePreference.allCases) { option in
-        Button {
-          withAnimation(Theme.spring) { side = option.rawValue }
-          Haptics.selection()
-        } label: {
-          HStack(spacing: 6) {
-            Circle()
-              .fill(option == .white ? Color.white : option == .black ? Theme.ink : Theme.inkFaint)
-              .overlay(Circle().strokeBorder(Theme.ink, lineWidth: 1.5))
-              .frame(width: 12, height: 12)
-            Text(option.name).scaledFont(15, .bold)
-          }
-          .foregroundStyle(Theme.ink)
-          .padding(.horizontal, 14)
-          .frame(height: 40)
-          .background {
-            if side == option.rawValue {
-              Capsule().fill(Theme.card).softShadow(radius: 6, y: 2).matchedGeometryEffect(id: "thumb", in: thumb)
-            }
-          }
-        }
-        .buttonStyle(.plain)
+    PillSegments(options: SidePreference.allCases, selection: $side, name: \.name) { option, active in
+      HStack(spacing: 6) {
+        Circle()
+          .fill(option == .white ? Color.white : option == .black ? Theme.ink : Theme.inkFaint)
+          .overlay(Circle().strokeBorder(active ? Theme.ink : Theme.inkMuted, lineWidth: 1.5))
+          .frame(width: 12, height: 12)
+        Text(option.name).scaledFont(15, .bold)
       }
+      .foregroundStyle(active ? Theme.ink : Theme.inkMuted)
     }
-    .padding(4)
-    .background(Theme.raised, in: Capsule())
+    .frame(maxWidth: 330)
   }
 }
 

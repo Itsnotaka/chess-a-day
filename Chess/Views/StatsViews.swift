@@ -43,7 +43,7 @@ struct StreakSheet: View {
     }
     .padding(.horizontal, 24)
     .padding(.top, 32)
-    .frame(maxHeight: .infinity, alignment: .top)
+    .padding(.bottom, 16)
   }
 
   static func describe(_ mark: DayMark?) -> String {
@@ -80,8 +80,7 @@ struct StatsSheet: View {
     let games = history.games
     let wins = games.filter { $0.result == .win }.count
     let draws = games.filter { $0.result == .draw }.count
-    ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
+    VStack(alignment: .leading, spacing: 20) {
         Text("Stats").scaledFont(28, .heavy).foregroundStyle(Theme.ink).frame(maxWidth: .infinity)
         HStack(spacing: 10) {
           tile("\(games.count)", "Played")
@@ -111,10 +110,9 @@ struct StatsSheet: View {
             .foregroundStyle(Theme.inkMuted)
         }
       }
-      .padding(.horizontal, 20)
-      .padding(.top, 30)
-      .padding(.bottom, 24)
-    }
+    .padding(.horizontal, 20)
+    .padding(.top, 30)
+    .padding(.bottom, 24)
   }
 
   private func tile(_ value: String, _ label: String) -> some View {

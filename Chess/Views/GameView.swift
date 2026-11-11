@@ -11,6 +11,7 @@ struct GameView: View {
   @AppStorage(Pref.side) private var side = SidePreference.white.rawValue
   @AppStorage(Pref.timeControl) private var timeControl = TimeControl.none
   @AppStorage(Pref.turnBoard) private var turnBoard = false
+  @AppStorage(Pref.appearance) private var appearance = Appearance.system
   @State private var confirmResign = false
   @State private var settings = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -37,6 +38,7 @@ struct GameView: View {
       .onChange(of: timeline.date) { _, now in game.checkFlag(at: now) }
     }
     .background(Theme.card.ignoresSafeArea())
+    .preferredColorScheme(appearance.scheme)
     .overlay { if !reduceMotion { Celebration(result: game.result) } }
     .animation(Theme.spring, value: game.isOver)
     .confirmationDialog(resignQuestion, isPresented: $confirmResign, titleVisibility: .visible) {
@@ -45,10 +47,6 @@ struct GameView: View {
     }
     .sheet(isPresented: $settings) {
       SettingsSheet(start: .game)
-        .presentationDetents([.fraction(0.6), .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(Theme.Radius.card)
-        .presentationBackground(Theme.card)
     }
   }
 

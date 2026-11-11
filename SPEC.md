@@ -174,6 +174,10 @@ tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh, make-ico
 - **Sounds** (AVFoundation): a soft knock for a move, a deeper double knock for a capture, a two-note chime when a game ends. Synthesised by a script, so they carry no licence. Ambient session, respects the silent switch, played on a serial queue so audio never touches the main thread.
 - **Haptics** (UIKit): one generator per kind, made once and reused; the drop's generator is prepared when a drag starts.
 - **Confetti** (Vortex) in the level colours when you win; none under Reduce Motion.
+- **Segmented pills** (White/Random/Black, Light/Auto/Dark) are masked like a good tab bar: the labels are drawn twice, muted and active, and the active copy shows only through the sliding thumb, so a label changes colour exactly where the thumb covers it. The thumb follows a dragging finger and snaps on lift; a tap lands on lift; the choice is stored by the control itself, so a tap redraws only it.
+- **Morphing pill** for async actions (Remind me): label, then a spinner as the pill draws in to a circle, then a check with "Reminder set".
+- **Sheets fit their content**: each reports its height and the sheet morphs to it; settings pages slide in from the right and back out to it. Sheets and the game follow the chosen appearance live.
+- **Reminder time** is a slider in quarter hours, 5 AM to 11 PM, with a large readout; it ticks each step and reschedules on lift.
 - **Drag**: the dragged piece itself rides above the finger (1.35x, with a shadow) and settles into its new square or back to its own; a cancelled touch settles it back too.
 - **VoiceOver**: every square is a button labelled with its square and piece ("e4, white pawn") and valued with its state (selected, legal move, capture, in check, last move); activating it is a tap. Promotion choices are named. Clocks read as "You's clock, 4:32".
 - **Dynamic Type**: every size goes through `scaledFont`, which follows the reader's text size. Home and the game are one screen without scrolling, so they stop at the largest standard size; sheets scroll and go to Accessibility 2.
