@@ -215,6 +215,9 @@ enum AppIcon: String, CaseIterable, Identifiable {
   var id: Self { self }
   var name: String { rawValue.capitalized }
 
+  /// The picker's picture of this icon, made with it by tools/make-icons.swift.
+  var preview: String { "Icon\(rawValue.capitalized)" }
+
   var alternateName: String? {
     switch self {
     case .classic: nil
@@ -234,14 +237,13 @@ private struct IconTile: View {
   let selected: Bool
 
   var body: some View {
-    PieceSet.cburnett.image("wN")
-      .resizable().scaledToFit()
-      .padding(18)
-      .colorMultiply(icon == .mono ? Color(white: 0.6) : .white)
+    Image(icon.preview)
+      .resizable()
+      .interpolation(.high)
       .frame(width: 96, height: 96)
-      .background(ground, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+      .clipShape(RoundedRectangle(cornerRadius: 96 * 0.2237, style: .continuous))
       .overlay {
-        RoundedRectangle(cornerRadius: 24, style: .continuous)
+        RoundedRectangle(cornerRadius: 96 * 0.2237, style: .continuous)
           .strokeBorder(selected ? Theme.ink : Theme.hairline, lineWidth: selected ? 3.5 : 1.5)
       }
       .overlay(alignment: .topTrailing) {
@@ -256,14 +258,6 @@ private struct IconTile: View {
             .transition(.scale.combined(with: .opacity))
         }
       }
-  }
-
-  private var ground: Color {
-    switch icon {
-    case .classic: Color(white: 0.996)
-    case .night: Color(white: 0.149)
-    case .mono: Color(white: 0.902)
-    }
   }
 }
 

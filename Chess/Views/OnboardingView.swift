@@ -20,7 +20,8 @@ struct OnboardingView: View {
         .softShadow(radius: 24, y: 12)
         .padding(.horizontal, 60)
         .padding(.vertical, 24)
-        .frame(maxHeight: .infinity)
+        // The board takes only the height the card leaves; it shrinks or fades, never the card.
+        .frame(minHeight: 0, maxHeight: .infinity)
         .opacity(step == 0 ? 1 : 0.5)
         .accessibilityHidden(true)
 
@@ -48,6 +49,7 @@ struct OnboardingView: View {
       .softShadow(radius: 30, y: 12)
       .padding(.horizontal, 12)
       .padding(.bottom, 8)
+      .layoutPriority(1)
     }
     .background(Theme.ground.ignoresSafeArea())
     .animation(Theme.spring, value: step)
@@ -177,18 +179,18 @@ private struct Feature: View {
   }
 }
 
-/// The app's mark: a knight on a white tile, as Sudoku a Day shows its icon.
+/// The app's mark: the logo tile, with the rounded corners iOS gives the icon.
 struct AppMark: View {
-  var size: CGFloat = 64
+  var size: CGFloat = 68
 
   var body: some View {
-    PieceSet.cburnett.image("wN")
+    Image("Logo")
       .resizable()
-      .scaledToFit()
-      .padding(size * 0.14)
+      .interpolation(.high)
       .frame(width: size, height: size)
-      .background(Color.white, in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+      .clipShape(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous))
       .softShadow(radius: 12, y: 4)
+      .accessibilityHidden(true)
   }
 }
 
