@@ -1,0 +1,4 @@
+apps/ios
+**/node_modules
+**/.next
+.turbo
