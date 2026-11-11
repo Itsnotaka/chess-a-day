@@ -9,37 +9,32 @@ enum SettingsPage: String, Identifiable, Hashable {
 struct SettingsSheet: View {
   let start: SettingsPage
   @State private var page: SettingsPage = .root
-  @State private var forward = true
 
   var body: some View {
-    FittedSheet {
-      ZStack(alignment: .top) {
-        Group {
-          if page == .root {
-            SettingsRoot(open: open)
-          } else {
-            SettingsPageView(page: page, back: back)
-          }
+    ZStack(alignment: .top) {
+      Group {
+        if page == .root {
+          SettingsRoot(open: open)
+        } else {
+          SettingsPageView(page: page, back: back)
         }
-        .id(page)
-        .motionTransition(.asymmetric(
-          insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-          removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
       }
-      .clipped()
+      .id(page)
+      .motionTransition(.asymmetric(
+        insertion: .scale(scale: 0.96).combined(with: .opacity),
+        removal: .opacity))
     }
+    .clipped()
     .onAppear { page = start }
   }
 
   private func open(_ next: SettingsPage) {
-    forward = true
-    withAnimation(Theme.sheetResize) { page = next }
+    withAnimation(Theme.Tray.page) { page = next }
     Haptics.selection()
   }
 
   private func back() {
-    forward = false
-    withAnimation(Theme.sheetResize) { page = .root }
+    withAnimation(Theme.Tray.page) { page = .root }
   }
 }
 

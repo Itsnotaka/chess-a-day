@@ -44,7 +44,7 @@ struct HomeView: View {
     .padding(.top, 8)
     .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     .background(Theme.ground.ignoresSafeArea())
-    .sheet(item: $settings) { page in
+    .tray(item: $settings) { page in
       SettingsSheet(start: page)
     }
     .onChange(of: online.presentRequest) {
@@ -56,7 +56,7 @@ struct HomeView: View {
     } message: {
       Text(online.problem ?? "")
     }
-    .sheet(isPresented: $showingLearn, onDismiss: {
+    .tray(isPresented: $showingLearn, onDismiss: {
       lesson = afterLearn
       afterLearn = nil
     }) {
@@ -68,11 +68,11 @@ struct HomeView: View {
     .fullScreenCover(item: $lesson) { request in
       LessonScreen(request: request)
     }
-    .sheet(isPresented: $showingStreak) {
-      FittedSheet { StreakSheet() }
+    .tray(isPresented: $showingStreak) {
+      StreakSheet()
     }
-    .sheet(isPresented: $showingStats) {
-      FittedSheet { StatsSheet() }
+    .tray(isPresented: $showingStats) {
+      StatsSheet()
     }
     .fullScreenCover(item: $playing) { mode in
       GameView().environment(games.store(mode))

@@ -38,7 +38,7 @@ struct GameView: View {
     .preferredColorScheme(appearance.scheme)
     .overlay { if !reduceMotion { Celebration(result: game.result) } }
     .animation(Theme.spring, value: game.isOver)
-    .sheet(isPresented: $settings) {
+    .tray(isPresented: $settings) {
       SettingsSheet(start: .game)
     }
   }

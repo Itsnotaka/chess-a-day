@@ -114,7 +114,7 @@ No placement test. The level can be changed at any time.
 - A day **counts** when it has a finished computer game (any result) **or** the day's puzzle solved. Doing both fills the day's ring; one fills half.
 - The streak is the run of counted days ending today or yesterday.
 
-## Settings (a sheet with a grabber over home, at 70% and large)
+## Settings (a tray over home)
 
 Rows with a leading symbol and a trailing chevron, each pushing a page that has a round
 Back button and a centred title:
@@ -185,11 +185,11 @@ tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh, make-ico
 - **Confetti** (Vortex) in the level colours when you win; none under Reduce Motion.
 - **Segmented pills** (White/Random/Black, Light/Auto/Dark) are masked like a good tab bar: the labels are drawn twice, muted and active, and the active copy shows only through the sliding thumb, so a label changes colour exactly where the thumb covers it. The thumb follows a dragging finger and snaps on lift; a tap lands on lift; the choice is stored by the control itself, so a tap redraws only it.
 - **Morphing pill** for async actions (Remind me): label, then a spinner as the pill draws in to a circle, then a check with "Reminder set".
-- **Sheets fit their content**: each reports its height and the sheet morphs to it; settings pages slide in from the right and back out to it. Sheets and the game follow the chosen appearance live.
+- **Trays, not sheets** (after rit3zh/expo-dynamic-tray): every bottom panel is a `Tray` card floating 16 pt in from the edges over a dimmed backdrop. One spring lifts it in and scales it from 94%; it springs to its content's height and scrolls only past the screen; a page change scales the new page up from 96% as the old one fades. Drag down past 110 pt or flick at 1000 pt/s, tap the backdrop, or use the VoiceOver escape gesture to close. Under Reduce Motion it fades in and out and pages crossfade.
 - **Reminder time** is a slider in quarter hours, 5 AM to 11 PM, with a large readout; it ticks each step and reschedules on lift.
 - **Drag**: the dragged piece itself rides above the finger (1.35x, with a shadow) and settles into its new square or back to its own; a cancelled touch settles it back too.
 - **VoiceOver**: every square is a button labelled with its square and piece ("e4, white pawn") and valued with its state (selected, legal move, capture, in check, last move); activating it is a tap. Promotion choices are named. Clocks read as "You's clock, 4:32".
-- **Dynamic Type**: every size goes through `scaledFont`, which follows the reader's text size. Home and the game are one screen without scrolling, so they stop at the largest standard size; sheets scroll and go to Accessibility 2.
+- **Dynamic Type**: every size goes through `scaledFont`, which follows the reader's text size. Home and the game are one screen without scrolling, so they stop at the largest standard size; trays scroll and go to Accessibility 2.
 - **Reduce Motion**: presses only dim, onboarding steps fade instead of slide, pieces fade instead of slide, no pulse, no confetti.
 - **Contrast**: the level colours are a step deeper than Sudoku a Day's in light mode, so white on them and them on a light fill keep 3:1; in dark mode the symbol on a level colour is near-black. Dark-mode boards are mid-toned so black pieces never sink into them.
 - **Reminders** stay off when iOS won't deliver them: a blocked permission shows as such, with Open Settings.

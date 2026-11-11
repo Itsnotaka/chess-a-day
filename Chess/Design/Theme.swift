@@ -24,6 +24,7 @@ enum Theme {
   static let onTint = Color(light: 0xFFFFFF, dark: 0x1A1A1A)
 
   static let shadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.07, darkAlpha: 0)
+  static let scrim = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.3, darkAlpha: 0.5)
   static let hairline = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.06, darkAlpha: 0.07)
 
   enum Board {
@@ -45,7 +46,15 @@ enum Theme {
 
   static let spring = Animation.spring(response: 0.32, dampingFraction: 0.72)
   static let pieceSlide = Animation.spring(response: 0.26, dampingFraction: 0.86)
-  static let sheetResize = Animation.spring(response: 0.42, dampingFraction: 0.86)
+
+  enum Tray {
+    static let present = Animation.interpolatingSpring(mass: 1, stiffness: 240, damping: 26)
+    static let close = Animation.timingCurve(0.55, 0, 1, 0.45, duration: 0.34)
+    static let resize = Animation.interpolatingSpring(mass: 0.6, stiffness: 185, damping: 15)
+    static let dragReturn = Animation.interpolatingSpring(mass: 1, stiffness: 260, damping: 24)
+    static let page = Animation.timingCurve(0.26, 0.08, 0.25, 1, duration: 0.37)
+    static let reduced = Animation.easeOut(duration: 0.2)
+  }
 }
 
 extension Color {

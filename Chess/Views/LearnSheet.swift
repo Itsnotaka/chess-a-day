@@ -5,28 +5,24 @@ struct LearnSheet: View {
   let start: (LessonRequest) -> Void
   @Environment(LearnProgress.self) private var progress
   @State private var course: Course?
-  @State private var forward = true
 
   var body: some View {
-    FittedSheet {
-      ZStack(alignment: .top) {
-        Group {
-          if let course {
-            CoursePage(course: course, start: start) {
-              forward = false
-              withAnimation(Theme.sheetResize) { self.course = nil }
-            }
-          } else {
-            courses
+    ZStack(alignment: .top) {
+      Group {
+        if let course {
+          CoursePage(course: course, start: start) {
+            withAnimation(Theme.Tray.page) { self.course = nil }
           }
+        } else {
+          courses
         }
-        .id(course?.id ?? "courses")
-        .motionTransition(.asymmetric(
-          insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-          removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
       }
-      .clipped()
+      .id(course?.id ?? "courses")
+      .motionTransition(.asymmetric(
+        insertion: .scale(scale: 0.96).combined(with: .opacity),
+        removal: .opacity))
     }
+    .clipped()
   }
 
   private var courses: some View {
@@ -37,8 +33,7 @@ struct LearnSheet: View {
         SectionLabel(title: side == .white ? "As White" : "As Black").padding(.top, 6)
         ForEach(Courses.all.filter { $0.side == side }) { course in
           Button {
-            forward = true
-            withAnimation(Theme.sheetResize) { self.course = course }
+            withAnimation(Theme.Tray.page) { self.course = course }
             Haptics.selection()
           } label: { CourseCard(course: course, learned: progress.learned(in: course)) }
             .buttonStyle(SoftPress())
