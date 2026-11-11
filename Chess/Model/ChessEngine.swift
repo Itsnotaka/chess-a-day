@@ -2,8 +2,6 @@ import ChessKit
 import ChessKitEngine
 import Foundation
 
-/// The computer opponent. Stockfish 17 (ChessKitEngine) when its two NNUE files are bundled,
-/// else a small built-in search so the app always has an opponent.
 actor ChessEngine {
   static let shared = ChessEngine()
 
@@ -16,12 +14,16 @@ actor ChessEngine {
   private var listener: Task<Void, Never>?
   private var ready: CheckedContinuation<Void, Never>?
   private var pending: CheckedContinuation<String?, Never>?
-  private var started = false
+  private var startup: Task<Void, Never>?
+  private var search: Task<String?, Never>?
 
-  /// The first call starts Stockfish and waits for `readyok`; later calls return immediately.
   func warmUp() async {
-    guard Self.hasNetworks, !started else { return }
-    started = true
+    guard Self.hasNetworks else { return }
+    if startup == nil { startup = Task { await start() } }
+    await startup?.value
+  }
+
+  private func start() async {
     await engine.start(coreCount: 2)
     guard let stream = await engine.responseStream else { return }
     listener = Task { [weak self] in
@@ -33,10 +35,19 @@ actor ChessEngine {
     }
   }
 
-  /// Returns a UCI move ("e7e5", "a7a8q"), or nil if no move is available.
-  /// Callers must not overlap searches: there is only one pending continuation.
   func bestMove(fen: String, level: Level) async -> String? {
     guard Self.hasNetworks else { return Fallback.bestMove(fen: fen, level: level) }
+    let previous = search
+    let next = Task {
+      _ = await previous?.value
+      return await run(fen: fen, level: level)
+    }
+    search = next
+    if pending != nil { await engine.send(command: .stop) }
+    return await next.value
+  }
+
+  private func run(fen: String, level: Level) async -> String? {
     await warmUp()
     for (id, value) in level.engineOptions {
       await engine.send(command: .setoption(id: id, value: value))
@@ -50,7 +61,6 @@ actor ChessEngine {
     }
   }
 
-  /// Times a reply at every level on a few positions, for `devicectl … --console`.
   static func benchmark() async {
     let positions = [
       "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
@@ -71,9 +81,9 @@ actor ChessEngine {
     print("[bench] done")
   }
 
-  /// Clears Stockfish's game state if startup has begun; does not stop a search.
   func newGame() async {
-    guard started else { return }
+    guard let startup else { return }
+    await startup.value
     await engine.send(command: .ucinewgame)
   }
 
@@ -91,8 +101,6 @@ actor ChessEngine {
   }
 }
 
-/// Scores each legal move by material, centralization and the largest threatened piece.
-/// A position-derived roll occasionally chooses a weaker move, more often at lower levels.
 enum Fallback {
   static func bestMove(fen: String, level: Level) -> String? {
     guard let position = Position(fen: fen) else { return nil }
@@ -111,7 +119,6 @@ enum Fallback {
     return roll % sloppiness == 0 ? ranked[roll % ranked.count].uci : best.uci
   }
 
-  /// Material values in centipawns.
   private static let value: [Piece.Kind: Int] = [.pawn: 100, .knight: 320, .bishop: 330, .rook: 500, .queen: 900, .king: 0]
 
   private static func moves(on board: Board, for side: Piece.Color) -> [(from: Square, to: Square, uci: String)] {

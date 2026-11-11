@@ -1,13 +1,11 @@
 import ChessKit
 import SwiftUI
 
-/// Learn: the courses by side, then a course's lessons, in a sheet that fits each page.
 struct LearnSheet: View {
   let start: (LessonRequest) -> Void
   @Environment(LearnProgress.self) private var progress
   @State private var course: Course?
   @State private var forward = true
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     FittedSheet {
@@ -23,7 +21,7 @@ struct LearnSheet: View {
           }
         }
         .id(course?.id ?? "courses")
-        .transition(reduceMotion ? .opacity : .asymmetric(
+        .motionTransition(.asymmetric(
           insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
           removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
       }

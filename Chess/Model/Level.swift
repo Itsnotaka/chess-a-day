@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// The five levels. One choice sets the computer's strength and the daily puzzle's band.
 enum Level: String, CaseIterable, Codable, Identifiable, Sendable {
   case easy, medium, hard, expert, master
 
@@ -36,7 +35,6 @@ enum Level: String, CaseIterable, Codable, Identifiable, Sendable {
     }
   }
 
-  /// Semantic accent shared by level controls and badges.
   var tint: Color {
     switch self {
     case .easy: Theme.teal
@@ -47,7 +45,6 @@ enum Level: String, CaseIterable, Codable, Identifiable, Sendable {
     }
   }
 
-  /// Stockfish's strength: a Skill Level for the lower levels, an Elo limit above.
   var engineOptions: [(String, String)] {
     switch self {
     case .easy: [("UCI_LimitStrength", "false"), ("Skill Level", "0")]
@@ -58,7 +55,6 @@ enum Level: String, CaseIterable, Codable, Identifiable, Sendable {
     }
   }
 
-  /// How long the engine may think, in milliseconds.
   var moveTime: Int {
     switch self {
     case .easy: 60
@@ -69,7 +65,6 @@ enum Level: String, CaseIterable, Codable, Identifiable, Sendable {
     }
   }
 
-  /// Minimum elapsed time for an engine reply, including computation.
   var minimumThink: Duration {
     switch self {
     case .easy, .medium: .milliseconds(650)
@@ -79,7 +74,6 @@ enum Level: String, CaseIterable, Codable, Identifiable, Sendable {
   }
 }
 
-/// Clock presets: base minutes plus increment seconds per move.
 enum TimeControl: String, CaseIterable, Codable, Identifiable, Sendable {
   case none, rapid10 = "10+0", blitz5 = "5+3", blitz3 = "3+2"
 
@@ -87,7 +81,6 @@ enum TimeControl: String, CaseIterable, Codable, Identifiable, Sendable {
 
   var name: String { self == .none ? "No clock" : rawValue }
 
-  /// Starting time per side; nil disables the clock.
   var base: Duration? {
     switch self {
     case .none: nil
@@ -97,7 +90,6 @@ enum TimeControl: String, CaseIterable, Codable, Identifiable, Sendable {
     }
   }
 
-  /// Time added after a move made before the flag falls.
   var increment: Duration {
     switch self {
     case .none, .rapid10: .zero
@@ -107,14 +99,12 @@ enum TimeControl: String, CaseIterable, Codable, Identifiable, Sendable {
   }
 }
 
-/// Preferred side for a new computer game; random is resolved when the game starts.
 enum SidePreference: String, CaseIterable, Identifiable, Sendable {
   case white, random, black
   var id: Self { self }
   var name: String { rawValue.capitalized }
 }
 
-/// App colour scheme override; system follows the device setting.
 enum Appearance: String, CaseIterable, Identifiable, Sendable {
   case light, system, dark
   var id: Self { self }
@@ -144,7 +134,6 @@ enum Appearance: String, CaseIterable, Identifiable, Sendable {
   }
 }
 
-/// The `@AppStorage` keys, in one place.
 enum Pref {
   static let onboarded = "onboarded"
   static let level = "level"

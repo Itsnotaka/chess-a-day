@@ -1,7 +1,6 @@
 import ChessKit
 import SwiftUI
 
-/// Computer-game entry point, local and online play, and recent-day history.
 struct HomeView: View {
   @Environment(GameStore.self) private var game
   @Environment(Games.self) private var games
@@ -17,7 +16,6 @@ struct HomeView: View {
   @State private var showingStreak = false
   @State private var showingLearn = false
   @State private var lesson: LessonRequest?
-  /// A lesson picked in the Learn sheet opens once the sheet has gone.
   @State private var afterLearn: LessonRequest?
 
   @State private var showingStats = false
@@ -44,13 +42,11 @@ struct HomeView: View {
     }
     .padding(.horizontal, 20)
     .padding(.top, 8)
-    // Cap text size to keep the non-scrolling home screen usable.
     .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     .background(Theme.ground.ignoresSafeArea())
     .sheet(item: $settings) { page in
       SettingsSheet(start: page)
     }
-    // Dismiss settings before presenting a game requested by Game Center.
     .onChange(of: online.presentRequest) {
       settings = nil
       playing = .online
@@ -82,7 +78,6 @@ struct HomeView: View {
       GameView().environment(games.store(mode))
     }
     #if DEBUG
-    // `simctl launch … -debugOpen game|friend|online|settings-<page>` opens a screen for screenshots.
     .onAppear {
       switch UserDefaults.standard.string(forKey: "debugOpen") {
       case "game"?: play()
@@ -164,7 +159,6 @@ struct HomeView: View {
     .softShadow(radius: 30, y: 14)
   }
 
-  /// Opens an invite directly when no games are active; otherwise offers a game menu.
   @ViewBuilder
   private var onlineTile: some View {
     let games = online.summaries.filter { !$0.finished }
@@ -180,8 +174,7 @@ struct HomeView: View {
           ForEach(games) { game in
             Button("\(game.opponent) · \(game.label)", systemImage: game.state == .yourMove ? "circle.fill" : "circle") {
               Task {
-                await online.open(game.id)
-                playing = .online
+                if await online.open(game.id) { playing = .online }
               }
             }
           }
@@ -232,7 +225,6 @@ struct HomeView: View {
   }
 }
 
-/// Shared play-mode tile with an optional waiting-turn count.
 struct TileLabel: View {
   let symbol: String
   let title: String
@@ -254,7 +246,7 @@ struct TileLabel: View {
             .foregroundStyle(Theme.onInk)
             .frame(minWidth: 26, minHeight: 26)
             .background(Theme.ink, in: Capsule())
-            .transition(.scale.combined(with: .opacity))
+            .motionTransition(.scale.combined(with: .opacity))
         }
       }
       VStack(alignment: .leading, spacing: 2) {
@@ -272,7 +264,6 @@ struct TileLabel: View {
   }
 }
 
-/// Stores the preferred side locally rather than binding it through HomeView.
 struct SidePicker: View {
   @AppStorage(Pref.side) private var side = SidePreference.white
 
@@ -291,7 +282,6 @@ struct SidePicker: View {
   }
 }
 
-/// Today, the previous three days, and disabled tomorrow, with completion rings.
 struct DayStrip: View {
   @Binding var selected: Date
   @Environment(History.self) private var history
@@ -334,7 +324,6 @@ struct DayStrip: View {
   }
 }
 
-/// Game/puzzle completion count: dashed for zero, half for one, checked for two.
 struct DayRing: View {
   let count: Int
 

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Lays children in rows, wrapping when a row is full, each row centred.
 struct FlowLayout: Layout {
   var spacing: CGFloat = 8
 
@@ -24,14 +23,12 @@ struct FlowLayout: Layout {
     }
   }
 
-  /// Child indices and ideal dimensions for one row.
   private struct Row {
     var indices: [Int] = []
     var width: CGFloat = 0
     var height: CGFloat = 0
   }
 
-  /// Keeps each child at its ideal size, even when a single child exceeds the row width.
   private func rows(for subviews: Subviews, width: CGFloat) -> [Row] {
     subviews.indices.reduce(into: [Row()]) { rows, index in
       let size = subviews[index].sizeThatFits(.unspecified)

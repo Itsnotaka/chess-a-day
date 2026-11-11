@@ -1,6 +1,5 @@
 import UIKit
 
-/// Reuses UIKit feedback generators on the main actor; respects the Haptics setting.
 @MainActor
 enum Haptics {
   private static var on: Bool { UserDefaults.standard.object(forKey: Pref.haptics) as? Bool ?? true }
@@ -17,7 +16,6 @@ enum Haptics {
     selectionGenerator.prepare()
   }
 
-  /// Prepares both possible drop impacts at drag start to reduce latency.
   static func prepareDrop() {
     guard on else { return }
     soft.prepare()
@@ -34,7 +32,6 @@ enum Haptics {
     notification.notificationOccurred(won ? .success : .warning)
   }
 
-  /// A move the lesson wasn't asking for.
   static func miss() {
     guard on else { return }
     notification.notificationOccurred(.warning)

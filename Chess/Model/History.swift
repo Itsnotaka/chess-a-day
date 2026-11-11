@@ -1,25 +1,20 @@
 import Foundation
 import Observation
 
-/// What each day counted: a finished game and the solved puzzle.
 struct DayMark: Codable, Equatable, Sendable {
   var game = false
   var puzzle = false
   var count: Int { (game ? 1 : 0) + (puzzle ? 1 : 0) }
 }
 
-/// One finished game against the computer, for Stats.
 struct GameRecord: Codable, Equatable, Sendable {
   enum Outcome: String, Codable, Sendable { case win, draw, loss }
   var date: Date
   var level: Level
   var result: Outcome
-  /// Full-move count, rounding an unfinished pair of plies up.
   var moves: Int
 }
 
-/// Days played and games finished, kept as JSON in Application Support. A day counts toward
-/// the streak when it has a finished game or the day's puzzle solved; doing both fills its ring.
 @MainActor
 @Observable
 final class History {
@@ -44,7 +39,6 @@ final class History {
     mark(DayKey.of(game.date), game: true)
   }
 
-  /// Adds credit without clearing existing marks, then saves marks and games.
   func mark(_ day: String, game: Bool = false, puzzle: Bool = false) {
     var mark = days[day] ?? DayMark()
     mark.game = mark.game || game
@@ -53,7 +47,6 @@ final class History {
     Storage.write(File(days: days, games: games), to: url)
   }
 
-  /// Consecutive credited days ending today or yesterday.
   func streak(today: Date = .now) -> Int {
     let calendar = Calendar.current
     let counted = { (date: Date) in (self.days[DayKey.of(date)]?.count ?? 0) > 0 }
@@ -63,7 +56,6 @@ final class History {
       .reduce(0) { count, _ in count + 1 }
   }
 
-  /// The longest run of counted days ever.
   var bestStreak: Int {
     let calendar = Calendar.current
     let dates = days.filter { $0.value.count > 0 }.keys.compactMap(DayKey.date).sorted()
@@ -75,7 +67,6 @@ final class History {
   }
 }
 
-/// A day's key in the person's own calendar: "2026-11-11".
 enum DayKey {
   static func of(_ date: Date) -> String {
     let parts = Calendar.current.dateComponents([.year, .month, .day], from: date)
@@ -89,7 +80,6 @@ enum DayKey {
   }
 }
 
-/// Synchronous, best-effort JSON storage under Application Support; errors are discarded.
 enum Storage {
   static func file(_ name: String) -> URL {
     let folder = URL.applicationSupportDirectory

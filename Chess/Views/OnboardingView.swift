@@ -1,7 +1,6 @@
 import ChessKit
 import SwiftUI
 
-/// First launch: Welcome, Level, Reminder, on one floating card over the grey ground.
 struct OnboardingView: View {
   @AppStorage(Pref.onboarded) private var onboarded = false
   @AppStorage(Pref.level) private var level = Level.medium
@@ -19,7 +18,6 @@ struct OnboardingView: View {
         .softShadow(radius: 24, y: 12)
         .padding(.horizontal, 60)
         .padding(.vertical, 24)
-        // Give spare height to the decorative board; the card has layout priority.
         .frame(minHeight: 0, maxHeight: .infinity)
         .opacity(step == 0 ? 1 : 0.5)
         .accessibilityHidden(true)
@@ -34,7 +32,7 @@ struct OnboardingView: View {
           }
         }
         .id(step)
-        .transition(reduceMotion ? .opacity : .asymmetric(
+        .motionTransition(.asymmetric(
           insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
           removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
         buttons.padding(.top, 6)
@@ -73,7 +71,6 @@ struct OnboardingView: View {
     }
   }
 
-  /// The list as it is, or scrolling when large text makes it taller than the screen.
   private var levels: some View {
     ViewThatFits(in: .vertical) {
       levelList
@@ -119,7 +116,7 @@ struct OnboardingView: View {
           forward = false
           step -= 1
         }
-        .transition(.scale.combined(with: .opacity))
+        .motionTransition(.scale.combined(with: .opacity))
       }
       if step < 2 {
         InkPill(title: "Continue", fullWidth: true) {
@@ -151,7 +148,6 @@ struct OnboardingView: View {
   }
 }
 
-/// Onboarding feature row, read as one VoiceOver element.
 private struct Feature: View {
   let symbol: String
   let title: String
@@ -176,7 +172,6 @@ private struct Feature: View {
   }
 }
 
-/// Decorative logo tile clipped to app-icon proportions.
 struct AppMark: View {
   var size: CGFloat = 68
 
@@ -191,8 +186,6 @@ struct AppMark: View {
   }
 }
 
-/// Reminder time in minutes after midnight, adjustable in quarter hours from 5 AM to 11 PM.
-/// Value changes trigger haptics; `committed` runs when slider editing ends.
 struct ReminderTime: View {
   @Binding var minute: Int
   var committed: (Int) -> Void = { _ in }
@@ -221,7 +214,6 @@ struct ReminderTime: View {
     .onChange(of: minute) { Haptics.selection() }
   }
 
-  /// Formats minutes after midnight using the current locale’s short time style.
   static func label(_ minute: Int) -> String {
     let date = Calendar.current.date(from: DateComponents(hour: minute / 60, minute: minute % 60)) ?? .now
     return date.formatted(date: .omitted, time: .shortened)

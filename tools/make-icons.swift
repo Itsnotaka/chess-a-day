@@ -1,4 +1,3 @@
-// Renders the Icon Composer source and the shared in-app branding: swift tools/make-icons.swift
 import AppKit
 
 let root = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : ".")
@@ -29,7 +28,6 @@ guard renderer.terminationStatus == 0,
   fatalError("Could not render AppIcon.icon")
 }
 
-/// RGBA pixels of an image, top row first.
 func pixels(_ image: CGImage) -> (data: [UInt8], width: Int, height: Int) {
   let w = image.width, h = image.height
   var data = [UInt8](repeating: 0, count: w * h * 4)
@@ -46,7 +44,6 @@ func makeImage(_ data: [UInt8], _ w: Int, _ h: Int) -> CGImage {
   return context.makeImage()!
 }
 
-/// Recolours each pixel: greys (the squares) through `grey`, colours (the pieces) through `colour`.
 func recolour(_ image: CGImage, grey: (Double) -> Double, colour: (Double, Double, Double) -> (Double, Double, Double)) -> CGImage {
   var (data, w, h) = pixels(image)
   for i in stride(from: 0, to: data.count, by: 4) {
@@ -67,9 +64,7 @@ func recolour(_ image: CGImage, grey: (Double) -> Double, colour: (Double, Doubl
 }
 
 let classic = cg
-// Night: light squares become graphite, the pieces keep their colour.
 let night = recolour(cg, grey: { 0.12 + (1 - $0) * 1.4 }, colour: { ($0, $1, $2) })
-// Mono: everything grey, the pieces a soft mid grey.
 let mono = recolour(cg, grey: { $0 }, colour: { r, g, b in
   let l = 0.2126 * r + 0.7152 * g + 0.0722 * b
   let v = 0.35 + l * 0.25

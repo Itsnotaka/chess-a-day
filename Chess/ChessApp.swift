@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Owns shared game state and applies app-wide appearance and typography.
 @main
 struct ChessApp: App {
   @State private var history: History
@@ -29,14 +28,12 @@ struct ChessApp: App {
           Sounds.warmUp()
           games.online.authenticate()
           await ChessEngine.shared.warmUp()
-          // `-benchmark YES` times the engine at every level and prints it to the console.
           if UserDefaults.standard.bool(forKey: "benchmark") { await ChessEngine.benchmark() }
         }
     }
   }
 }
 
-/// Owns the computer and free-play stores and the Game Center match coordinator.
 @MainActor
 @Observable
 final class Games {
@@ -50,7 +47,6 @@ final class Games {
     online = OnlineGames(history: history)
   }
 
-  /// Lessons fall back to the computer store; online uses the coordinator's current store.
   func store(_ mode: GameMode) -> GameStore {
     switch mode {
     case .computer: computer
@@ -61,7 +57,6 @@ final class Games {
   }
 }
 
-/// Switches from onboarding to home when the persisted onboarding flag is set.
 struct RootView: View {
   @AppStorage(Pref.onboarded) private var onboarded = false
 

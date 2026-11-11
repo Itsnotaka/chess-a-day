@@ -17,19 +17,15 @@ enum Theme {
   static let blue = Color(light: 0x007AFF, dark: 0x0A84FF)
   static let live = Color(light: 0x8AB800, dark: 0xBBF91E)
 
-  // Sudoku a Day's difficulty hues, deepened a step in light mode so a white symbol on them,
-  // or the hue on a light fill, keeps at least 3:1.
   static let teal = Color(light: 0x1A8FA8, dark: 0x29D1FF)
   static let purple = Color(light: 0xA045D3, dark: 0xBC85FF)
   static let red = Color(light: 0xE0362A, dark: 0xFF6767)
   static let brown = Color(light: 0x8E7049, dark: 0xC4A27A)
-  /// Ink on a level colour: white on the deep light-mode hues, near-black on the bright dark-mode ones.
   static let onTint = Color(light: 0xFFFFFF, dark: 0x1A1A1A)
 
   static let shadow = Color(light: 0x000000, dark: 0x000000, lightAlpha: 0.07, darkAlpha: 0)
   static let hairline = Color(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.06, darkAlpha: 0.07)
 
-  /// Board overlays and coordinates, shared across square palettes.
   enum Board {
     static let edge = Color(light: 0x262626, dark: 0xD9D9D9)
     static let select = Color(light: 0x262626, dark: 0xFFFFFF, lightAlpha: 0.22, darkAlpha: 0.30)
@@ -41,23 +37,18 @@ enum Theme {
     static let dot = Color(light: 0x262626, dark: 0x1A1A1A, lightAlpha: 0.28, darkAlpha: 0.42)
   }
 
-  /// Corner radii in points.
   enum Radius {
     static let card: CGFloat = 36
     static let row: CGFloat = 20
     static let board: CGFloat = 12
   }
 
-  /// Default interface spring with a small overshoot.
   static let spring = Animation.spring(response: 0.32, dampingFraction: 0.72)
-  /// Firmer spring for moves between board squares.
   static let pieceSlide = Animation.spring(response: 0.26, dampingFraction: 0.86)
-  /// A sheet growing or shrinking to fit a new page.
   static let sheetResize = Animation.spring(response: 0.42, dampingFraction: 0.86)
 }
 
 extension Color {
-  /// Resolves packed RGB colours and their alpha values against the current appearance.
   init(light: UInt32, dark: UInt32, lightAlpha: Double = 1, darkAlpha: Double = 1) {
     self.init(uiColor: UIColor { traits in
       traits.userInterfaceStyle == .dark
@@ -68,7 +59,6 @@ extension Color {
 }
 
 extension UIColor {
-  /// Decodes 0xRRGGBB with a separate alpha value.
   convenience init(hex: UInt32, alpha: Double) {
     self.init(
       red: CGFloat((hex >> 16) & 0xFF) / 255,
@@ -80,7 +70,6 @@ extension UIColor {
 }
 
 extension View {
-  /// A soft surface shadow that disappears in dark mode.
   func softShadow(radius: CGFloat = 24, y: CGFloat = 10) -> some View {
     shadow(color: Theme.shadow, radius: radius, x: 0, y: y)
   }

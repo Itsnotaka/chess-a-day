@@ -1,7 +1,5 @@
 import AVFoundation
 
-/// Plays cues on a serial queue to keep audio setup off the main thread.
-/// The ambient session mixes with music and respects the silent switch and Sounds setting.
 enum Sounds {
   enum Cue: String, CaseIterable, Sendable { case move, capture, end }
 
@@ -10,10 +8,8 @@ enum Sounds {
     Bank.shared.play(cue)
   }
 
-  /// Loads the players ahead of the first move, off the main thread.
   static func warmUp() { Bank.shared.load() }
 
-  /// Player and load state are confined to `queue`, justifying unchecked Sendable.
   private final class Bank: @unchecked Sendable {
     static let shared = Bank()
     private let queue = DispatchQueue(label: "chess.sounds", qos: .userInitiated)

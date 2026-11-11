@@ -2,7 +2,6 @@ import ChessKit
 import Foundation
 import Observation
 
-/// Lessons learned and practised, kept as JSON in Application Support.
 @MainActor
 @Observable
 final class LearnProgress {
@@ -22,7 +21,6 @@ final class LearnProgress {
 
   func learned(in course: Course) -> Int { course.lessons.filter { result($0).learned }.count }
 
-  /// The first lesson not yet learned, else the one with the fewest stars.
   func next(in course: Course) -> Lesson? {
     course.lessons.first { !result($0).learned } ?? course.lessons.min { result($0).stars < result($1).stars }
   }
@@ -36,10 +34,6 @@ final class LearnProgress {
   }
 }
 
-/// Plays one lesson on a GameStore of its own: says the coach's words, plays the opponent's
-/// replies, accepts only the move being taught, and answers wrong moves.
-/// In practice the words and shapes are gone: you play the line from memory, and every wrong
-/// move or hint costs a star.
 @MainActor
 @Observable
 final class LessonPlayer {
@@ -52,15 +46,12 @@ final class LessonPlayer {
 
   private(set) var index = 0
   private(set) var message = ""
-  /// A muted line above the message: what the opponent just played.
   private(set) var detail: String?
   private(set) var mood = Mood.calm
-  /// The coach waits for Continue.
   private(set) var waiting = false
   private(set) var canHint = false
   private(set) var finished = false
   private(set) var mistakes = 0
-  /// Bumped on every wrong move, to shake the coach's card.
   private(set) var shake = 0
 
   private var misses = 0
@@ -88,7 +79,6 @@ final class LessonPlayer {
     run()
   }
 
-  /// Continue: the next step.
   func next() {
     waiting = false
     detail = nil
@@ -96,14 +86,12 @@ final class LessonPlayer {
     run()
   }
 
-  /// Shows the move being asked for. In practice it counts as a mistake.
   func hint() {
     guard expected != nil else { return }
     if practice { mistakes += 1 }
     reveal()
   }
 
-  // MARK: Steps
 
   private func run() {
     guard index < lesson.steps.count else { return finish() }
@@ -162,7 +150,7 @@ final class LessonPlayer {
       canHint = false
       expected = nil
       detail = nil
-      if practice || step.why.isEmpty {
+      if practice || (step.why.isEmpty && step.whyShapes.isEmpty) {
         store.guide(arrows: [], marks: [])
         Task {
           try? await Task.sleep(for: .milliseconds(300))
@@ -185,13 +173,11 @@ final class LessonPlayer {
       } else if practice || step.prompt.isEmpty {
         message = "Not that one. Try again."
       } else {
-        // Keep the author's question in view under the nudge.
         message = "Not quite. \(step.prompt)"
       }
     }
   }
 
-  /// Draws the expected move as an arrow and names it.
   private func reveal() {
     guard let expected else { return }
     let from = Square(String(expected.uci.prefix(2))), to = Square(String(expected.uci.dropFirst(2).prefix(2)))

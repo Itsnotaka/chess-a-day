@@ -2,8 +2,6 @@ import ChessKit
 import Foundation
 import Observation
 
-/// Game state shared by all modes; computer and free-play games are saved locally.
-/// The board is rebuilt from `startFEN` and the legal prefix of the UCI moves.
 struct SavedGame: Codable, Sendable {
   var moves: [String] = []
   var you: Piece.Color
@@ -15,49 +13,40 @@ struct SavedGame: Codable, Sendable {
   var blackLeft: TimeInterval
   var ending: Ending?
   var recorded = false
-  /// A lesson can start from any position; games start from the usual one.
   var startFEN: String?
 
-  /// Endings not derived from the board; the associated color is the losing side.
   enum Ending: Codable, Equatable, Sendable {
     case resigned(Piece.Color)
     case flagged(Piece.Color)
   }
 }
 
-/// An arrow the coach draws on the board, from one square to another, in the author's colour.
 struct BoardArrow: Hashable, Sendable {
   let from: Square
   let to: Square
   var color: GuideColor = .green
 }
 
-/// A square the coach circles.
 struct BoardMark: Hashable, Sendable {
   let square: Square
   var color: GuideColor = .green
 }
 
-/// What a lesson hears about a move made on its board.
 enum LessonAnswer: Sendable {
   case correct
   case wrong(san: String)
 }
 
-/// A piece as the board draws it: `id` follows the piece from square to square, so it slides.
 struct BoardPiece: Identifiable, Equatable {
   let id: String
   let piece: Piece
 }
 
-/// Against the computer, two people passing one phone, a friend online through Game Center,
-/// or a lesson, where the board accepts only the move being taught.
 enum GameMode: String, Identifiable, Sendable {
   case computer, friend, online, lesson
   var id: Self { self }
 }
 
-/// Player-relative results, or a named winning side in free play.
 enum GameResult: Equatable {
   case win, loss, draw, winner(Piece.Color)
 
@@ -72,7 +61,6 @@ enum GameResult: Equatable {
   }
 }
 
-/// Main-actor game state; board positions are derived only by replaying saved moves.
 @MainActor
 @Observable
 final class GameStore {
@@ -83,30 +71,21 @@ final class GameStore {
   private(set) var takenByYou: [Piece] = []
   private(set) var takenByThem: [Piece] = []
   private(set) var thinking = false
-  /// The moves in SAN, for the move list.
   private(set) var san: [String] = []
-  /// Turns the board for a look from the other side; not saved.
   var flipped = false
 
   var selected: Square?
   var promotion: (from: Square, to: Square)?
 
-  /// Lessons only: the UCI move accepted from the player; nil disables input.
   var lessonExpected: String?
   private(set) var arrows: [BoardArrow] = []
   private(set) var marks: [BoardMark] = []
-  /// Reports whether a legal player move matches the lesson.
   var onLessonMove: ((LessonAnswer) -> Void)?
 
-  /// Online opponent's display name.
   private(set) var opponentName = ""
-  /// Blocks online input while waiting for the opponent or after the match closes.
   private(set) var waitingForOpponent = false
-  /// Sends a local online move through `OnlineGames` to Game Center.
   var onlineSubmit: ((SavedGame) -> Void)?
-  /// Delegates online resignation to `OnlineGames`.
   var onlineResign: (() -> Void)?
-  /// Requests a rematch through `OnlineGames`.
   var onlineRematch: (() -> Void)?
 
   let mode: GameMode
@@ -119,11 +98,8 @@ final class GameStore {
     url = Storage.file("\(mode.rawValue)-game.json")
     saved = mode == .online || mode == .lesson ? nil : Storage.read(SavedGame.self, from: url)
     rebuild()
-    // A relaunch can land between your saved move and the computer's reply: resume it.
     replyIfNeeded()
   }
-
-  // MARK: State the views read
 
   var active: Bool { saved != nil && !isOver }
   var you: Piece.Color { saved?.you ?? .white }
@@ -137,9 +113,6 @@ final class GameStore {
     }
   }
 
-  // MARK: Lessons
-
-  /// A fresh board for a lesson, played as `you`, from `fen` or the usual start.
   func startLesson(you: Piece.Color, fen: String?) {
     saved = SavedGame(you: you, level: .medium, timeControl: .none, startedAt: .now, lastMoveAt: .now, whiteLeft: 0, blackLeft: 0)
     saved?.startFEN = fen
@@ -152,22 +125,18 @@ final class GameStore {
     rebuild()
   }
 
-  /// The lesson's own move for the side it scripts, played with the usual slide and sound.
   func playScripted(_ uci: String) { play(uci) }
 
-  /// A SAN move read against the current position, as UCI ("Nbd2" -> "b1d2").
   func uci(forSAN san: String) -> String? {
     guard let move = Move(san: san, position: board.position) else { return nil }
     return move.start.notation + move.end.notation + (move.promotedPiece.map { $0.kind.uciLetter } ?? "")
   }
 
-  /// Replaces the lesson's board annotations.
   func guide(arrows: [BoardArrow], marks: [BoardMark]) {
     self.arrows = arrows
     self.marks = marks
   }
 
-  /// Shows a game Game Center sent: the moves so far, who the friend is, and whose turn it is.
   func loadOnline(_ saved: SavedGame, opponent: String, waiting: Bool) {
     let same = self.saved?.moves == saved.moves && self.saved?.ending == saved.ending
     self.saved = saved
@@ -177,7 +146,6 @@ final class GameStore {
     selected = nil
     promotion = nil
     rebuild()
-    // The friend's move arriving: the same sound and tap as a move made here.
     if isOver {
       Haptics.finish(won: result != .loss)
       Sounds.play(.end)
@@ -188,8 +156,6 @@ final class GameStore {
   }
   var sideToMove: Piece.Color { board.position.sideToMove }
 
-  /// The side drawn at the bottom: yours against the computer; in free play White, or the side
-  /// to move when the board turns each move; either reversed by Flip.
   func bottom(turnBoard: Bool) -> Piece.Color {
     let base: Piece.Color = mode == .friend ? (turnBoard ? sideToMove : .white) : you
     return flipped ? base.opposite : base
@@ -197,7 +163,6 @@ final class GameStore {
 
   func taken(by color: Piece.Color) -> [Piece] { color == you ? takenByYou : takenByThem }
 
-  /// Whether the person holding the phone may move `color`'s pieces now.
   func controls(_ color: Piece.Color) -> Bool { yourTurn && color == sideToMove }
 
   var isOver: Bool { saved?.ending != nil || boardEnded }
@@ -254,16 +219,12 @@ final class GameStore {
 
   var moveCount: Int { ((saved?.moves.count ?? 0) + 1) / 2 }
 
-  /// Seconds remaining, possibly negative; nil for untimed games.
-  /// Clocks start after the first move and keep running while the app is closed.
   func timeLeft(_ color: Piece.Color, at now: Date) -> TimeInterval? {
     guard let saved, saved.timeControl.base != nil else { return nil }
     let stored = color == .white ? saved.whiteLeft : saved.blackLeft
     let running = active && board.position.sideToMove == color && !saved.moves.isEmpty
     return running ? stored - now.timeIntervalSince(saved.lastMoveAt) : stored
   }
-
-  // MARK: Actions
 
   func newGame(side: SidePreference, level: Level, timeControl: TimeControl) {
     let now = Date.now
@@ -284,7 +245,6 @@ final class GameStore {
     replyIfNeeded()
   }
 
-  /// A tap on a square: select your piece, move the selected one, or clear the selection.
   func tap(_ square: Square) {
     if let selected, targets.contains(square) {
       attempt(from: selected, to: square)
@@ -298,7 +258,6 @@ final class GameStore {
     selected = nil
   }
 
-  /// A finished drag; the piece goes back when the drop is not legal.
   func drop(from: Square, to: Square) {
     guard yourTurn, board.canMove(pieceAt: from, to: to) else { return }
     attempt(from: from, to: to)
@@ -321,7 +280,6 @@ final class GameStore {
     finishIfOver()
   }
 
-  /// Called by the clock view; `play` checks the same before accepting any move.
   func checkFlag(at now: Date) {
     guard active, let left = timeLeft(sideToMove, at: now), left <= 0 else { return }
     flag(sideToMove)
@@ -336,14 +294,11 @@ final class GameStore {
     finishIfOver()
   }
 
-  // MARK: Internals
-
   private func attempt(from: Square, to: Square) {
     selected = nil
     let piece = board.position.piece(at: from)
     let promotes = piece?.kind == .pawn && (to.rank.value == 8 || to.rank.value == 1)
     if mode == .lesson {
-      // Only the taught move goes through; anything else settles back and the coach answers.
       let uci = from.notation + to.notation + (promotes ? "q" : "")
       guard uci == lessonExpected else {
         var trial = board
@@ -373,7 +328,6 @@ final class GameStore {
     if saved.timeControl.base != nil, !saved.moves.isEmpty {
       let spent = now.timeIntervalSince(saved.lastMoveAt)
       let left = (mover == .white ? saved.whiteLeft : saved.blackLeft) - spent
-      // A move made after the flag fell loses on time and earns no increment.
       guard left > 0 else { return flag(mover) }
       let after = left + Double(saved.timeControl.increment.components.seconds)
       if mover == .white { saved.whiteLeft = after } else { saved.blackLeft = after }
@@ -403,7 +357,6 @@ final class GameStore {
       let elapsed = ContinuousClock.now - started
       if elapsed < level.minimumThink { try? await Task.sleep(for: level.minimumThink - elapsed) }
       thinking = false
-      // Discard a reply if the position changed while the engine was searching.
       guard let move, self.board.position.fen == fen, active else { return }
       play(move)
     }
@@ -431,7 +384,6 @@ final class GameStore {
 
   private var lastCapture = false
 
-  /// Replays the saved moves, keeping each piece's id from the square it started on.
   private func rebuild() {
     var board = Board(position: saved?.startFEN.flatMap(Position.init(fen:)) ?? .standard)
     var ids = Dictionary(uniqueKeysWithValues: board.position.pieces.map { ($0.square, "\($0.color.rawValue)\($0.kind.rawValue)-\($0.square.notation)") })
@@ -467,7 +419,6 @@ final class GameStore {
     pieces = board.position.pieces.map { BoardPiece(id: ids[$0.square] ?? $0.square.notation, piece: $0) }
   }
 
-  /// Plays one UCI move on `board`, completing a promotion; nil when it is not legal.
   private static func apply(_ uci: String, to board: inout Board) -> Move? {
     guard uci.count >= 4 else { return nil }
     let from = Square(String(uci.prefix(2)))
@@ -505,7 +456,6 @@ extension Piece.Kind {
     }
   }
 
-  /// Conventional material value, used to sort captured pieces.
   var worth: Int {
     switch self {
     case .queen: 9
@@ -527,7 +477,6 @@ extension Piece.Kind {
     }
   }
 
-  /// Piece letter in an asset name; pawns need "P" rather than their raw value.
   var assetLetter: String { self == .pawn ? "P" : rawValue }
 }
 

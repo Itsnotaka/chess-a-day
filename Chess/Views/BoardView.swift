@@ -1,7 +1,6 @@
 import ChessKit
 import SwiftUI
 
-/// Maps squares to points on a board seen from White, or from Black when `flipped`.
 struct BoardGeometry {
   let size: CGFloat
   let flipped: Bool
@@ -25,13 +24,11 @@ struct BoardGeometry {
 
   static let all: [Square] = Square.allCases
 
-  /// Squares as a reader meets them: the top row first, left to right.
   var readingOrder: [Square] {
     Self.all.sorted { (row($0), column($0)) < (row($1), column($1)) }
   }
 }
 
-/// Tap or drag to move, with optional legal-move dots and capture rings.
 struct BoardView: View {
   @Environment(GameStore.self) private var game
   @AppStorage(Pref.coordinates) private var coordinates = true
@@ -44,7 +41,6 @@ struct BoardView: View {
 
   private var settle: Animation { reduceMotion ? .easeOut(duration: 0.12) : Theme.pieceSlide }
 
-  /// Room for the rank and file labels outside the board.
   private var gutter: CGFloat { coordinates ? 18 : 0 }
   @AppStorage(Pref.turnBoard) private var turnBoard = false
   @AppStorage(Pref.boardTheme) private var boardTheme = BoardTheme.stone
@@ -173,7 +169,6 @@ struct BoardView: View {
     .joined(separator: ", ")
   }
 
-  /// Stable piece IDs keep the dragged view alive through a move or an invalid drop.
   private func pieces(_ geometry: BoardGeometry) -> some View {
     ForEach(game.pieces) { item in
       let lifted = dragPoint != nil && dragFrom == item.piece.square
@@ -185,27 +180,26 @@ struct BoardView: View {
         .shadow(color: .black.opacity(lifted ? 0.22 : 0), radius: 8, y: 6)
         .position(lifted ? lift(dragPoint ?? .zero, geometry) : geometry.center(item.piece.square))
         .zIndex(lifted ? 1 : 0)
-        .transition(.scale(scale: 0.6).combined(with: .opacity))
+        .motionTransition(.scale(scale: 0.6).combined(with: .opacity))
         .allowsHitTesting(false)
+        .id(reduceMotion ? AnyHashable(item.piece.square) : AnyHashable(item.id))
     }
     .animation(settle, value: game.pieces)
   }
 
-  /// Squares the coach points at: a soft ring under the pieces.
   private func marks(_ geometry: BoardGeometry) -> some View {
     ForEach(game.marks, id: \.self) { mark in
       Circle()
         .strokeBorder(mark.color.board, lineWidth: geometry.cell * 0.08)
         .frame(width: geometry.cell * 0.9, height: geometry.cell * 0.9)
         .position(geometry.center(mark.square))
-        .transition(.scale(scale: 0.6).combined(with: .opacity))
+        .motionTransition(.scale(scale: 0.6).combined(with: .opacity))
     }
     .animation(settle, value: game.marks)
     .allowsHitTesting(false)
     .accessibilityHidden(true)
   }
 
-  /// Coach arrows above the pieces, ending at each target's centre.
   private func arrows(_ geometry: BoardGeometry) -> some View {
     ForEach(game.arrows, id: \.self) { arrow in
       ArrowShape(from: geometry.center(arrow.from), to: geometry.center(arrow.to), width: geometry.cell * 0.17)
@@ -217,12 +211,10 @@ struct BoardView: View {
     .accessibilityHidden(true)
   }
 
-  /// The piece rides a little above the fingertip, so the finger doesn't hide it.
   private func lift(_ point: CGPoint, _ geometry: BoardGeometry) -> CGPoint {
     CGPoint(x: point.x, y: point.y - geometry.cell * 0.45)
   }
 
-  /// A controlled piece starts dragging after 6 points; other touches resolve as taps.
   private func input(_ geometry: BoardGeometry) -> some Gesture {
     DragGesture(minimumDistance: 0)
       .updating($touching) { _, state, _ in state = true }
@@ -258,7 +250,6 @@ struct BoardView: View {
   }
 }
 
-/// The four pieces a pawn can become, over a veil on the board.
 struct PromotionPicker: View {
   @Environment(GameStore.self) private var game
   @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
@@ -289,7 +280,6 @@ struct PromotionPicker: View {
   }
 }
 
-/// The home card's board: no input, just the current position.
 struct MiniBoard: View {
   let pieces: [BoardPiece]
   let flipped: Bool
@@ -323,7 +313,6 @@ struct MiniBoard: View {
   }
 }
 
-/// A straight arrow with a rounded tail and a wide head ending at the target centre.
 struct ArrowShape: Shape {
   let from: CGPoint
   let to: CGPoint

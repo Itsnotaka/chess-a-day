@@ -2,7 +2,6 @@ import ChessKit
 import SwiftUI
 import Vortex
 
-/// Shared full-screen game layout, with player rows, moves and an inline result card.
 struct GameView: View {
   @Environment(GameStore.self) private var game
   @Environment(\.dismiss) private var dismiss
@@ -44,7 +43,6 @@ struct GameView: View {
     }
   }
 
-  /// Names and turn status depend on the mode; row position follows board orientation.
   private func player(_ color: Piece.Color, now: Date) -> some View {
     let colorName = color == .white ? "White" : "Black"
     let toMove = game.active && game.sideToMove == color
@@ -128,7 +126,7 @@ struct GameView: View {
       .padding(.vertical, 18)
       .frame(maxWidth: .infinity)
       .background(Theme.raised, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-      .transition(.move(edge: .bottom).combined(with: .opacity))
+      .motionTransition(.move(edge: .bottom).combined(with: .opacity))
     } else {
       HStack(spacing: 12) {
         ConfirmCircle(symbol: "flag.fill", title: resignTitle) { game.resign() }
@@ -152,14 +150,12 @@ struct GameView: View {
     }
   }
 
-  /// Whole minutes and seconds, rounded down and clamped at zero.
   static func clock(_ seconds: TimeInterval) -> String {
     let total = max(Int(seconds.rounded(.down)), 0)
     return String(format: "%d:%02d", total / 60, total % 60)
   }
 }
 
-/// Player identity and captures, with optional turn status and clock.
 struct PlayerRow: View {
   @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -208,7 +204,7 @@ struct PlayerRow: View {
           .animation(status == "Thinking…" && !reduceMotion ? .easeInOut(duration: 0.8).repeatForever() : .default, value: pulse)
           .onAppear { pulse = status == "Thinking…" && !reduceMotion }
           .onChange(of: status) { _, now in pulse = now == "Thinking…" && !reduceMotion }
-          .transition(.scale(scale: 0.8).combined(with: .opacity))
+          .motionTransition(.scale(scale: 0.8).combined(with: .opacity))
       }
       if let clock {
         Text(GameView.clock(clock))
@@ -227,7 +223,6 @@ struct PlayerRow: View {
   }
 }
 
-/// SAN moves in numbered pairs; new moves scroll the latest pair into view.
 struct MoveList: View {
   let moves: [String]
 
@@ -271,7 +266,6 @@ struct MoveList: View {
   }
 }
 
-/// Bursts when the result changes to a win, including a free-play winner.
 private struct Celebration: View {
   let result: GameResult?
 

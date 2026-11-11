@@ -1,7 +1,6 @@
 import ChessKit
 import Foundation
 
-/// A bundled lichess study whose chapters become lessons.
 struct Course: Identifiable, Sendable {
   let id: String
   let title: String
@@ -13,8 +12,6 @@ struct Course: Identifiable, Sendable {
   let lessons: [Lesson]
 }
 
-/// One chapter of a study. A gamebook chapter is played: you find your side's moves. Any
-/// other chapter is watched: each move is shown with its comment.
 struct Lesson: Identifiable, Sendable {
   enum Style: Sendable { case play, watch }
 
@@ -26,22 +23,14 @@ struct Lesson: Identifiable, Sendable {
   let steps: [LessonStep]
 }
 
-/// Colour codes used by lichess PGN arrow and square annotations.
 enum GuideColor: String, Sendable { case green = "G", red = "R", blue = "B", yellow = "Y" }
 
-/// The arrows and marked squares a comment draws on the board.
 struct Shapes: Sendable, Equatable {
   var arrows: [BoardArrow] = []
   var marks: [BoardMark] = []
   var isEmpty: Bool { arrows.isEmpty && marks.isEmpty }
 }
 
-/// One step of a lesson.
-/// - `say`: words (and shapes) with a Continue.
-/// - `you`: find `san`; `prompt` before it, `why` after it, `wrong` answers a sideline the
-///   author anticipated, by its SAN.
-/// - `them`: the opponent plays `san`.
-/// - `watch`: `san` is shown, with `why` after it.
 struct LessonStep: Sendable {
   enum Kind: Sendable { case say, you, them, watch }
 
@@ -54,15 +43,12 @@ struct LessonStep: Sendable {
   var wrong: [String: String] = [:]
 }
 
-// MARK: - The catalogue
 
-/// Bundled courses; unreadable or lesson-free studies are omitted.
 enum Courses {
   static let all: [Course] = catalogue.compactMap { $0.load() }
 
   static func course(_ id: String) -> Course? { all.first { $0.id == id } }
 
-  /// Bundled PGN name and catalogue metadata, including the source study ID.
   private struct Source {
     let file: String
     let title: String
@@ -94,19 +80,14 @@ enum Courses {
   ]
 }
 
-// MARK: - Reading lichess study PGN
 
-/// Reads bundled lichess PGN, splitting chapters at three consecutive newlines.
-/// Comments may carry `[%cal]` arrows and `[%csl]` square marks.
 enum Study {
-  /// A move with its comments and alternatives to that move.
   struct Node {
     var san: String
     var comments: [String] = []
     var variations: [[Node]] = []
   }
 
-  /// PGN headers, comments before the first move, and the main line.
   struct Chapter {
     var headers: [String: String]
     var intro: [String]
@@ -164,7 +145,6 @@ enum Study {
     return tokens
   }
 
-  /// A line of moves; a parenthesised variation is an alternative to the move before it.
   private static func parse(_ tokens: [String], at index: inout Int, intro: inout [String]) -> [Node] {
     var nodes: [Node] = []
     while index < tokens.count {
@@ -191,7 +171,6 @@ enum Study {
     return nodes
   }
 
-  /// Extracts arrows and square marks, then strips all PGN commands from the text.
   static func read(_ comments: [String]) -> (text: String, shapes: Shapes) {
     var shapes = Shapes()
     var words: [String] = []
@@ -220,8 +199,6 @@ enum Study {
 }
 
 extension Study.Chapter {
-  /// Builds main-line steps; rejects starts without two kings, empty lessons, and
-  /// watch chapters over 30 plies. This does not validate the moves.
   func lesson(course: String) -> Lesson? {
     let fen = headers["FEN"]
     let start = fen.flatMap(Position.init(fen:)) ?? .standard
@@ -250,8 +227,7 @@ extension Study.Chapter {
                                 why: after.text, whyShapes: after.shapes, wrong: wrong))
         pending = ("", Shapes())
       } else {
-        // The opponent's comment is the question for your next move, as in a lichess gamebook.
-        if !pending.text.isEmpty { steps.append(LessonStep(kind: .say, prompt: pending.text, promptShapes: pending.shapes)) }
+        if !pending.text.isEmpty || !pending.shapes.isEmpty { steps.append(LessonStep(kind: .say, prompt: pending.text, promptShapes: pending.shapes)) }
         steps.append(LessonStep(kind: .them, san: node.san))
         pending = after
       }
@@ -267,7 +243,6 @@ extension Study.Chapter {
     return Lesson(id: "\(course)/\(chapterID)", title: Self.tidy(name), you: you, fen: fen, style: style, steps: steps)
   }
 
-  /// "PIECE POSITIONING" reads as "Piece positioning"; other names stay as written.
   private static func tidy(_ name: String) -> String {
     guard name == name.uppercased(), name.contains(where: \.isLetter) else { return name }
     return name.prefix(1) + name.dropFirst().lowercased()

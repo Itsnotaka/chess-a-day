@@ -1,7 +1,6 @@
 import ChessKit
 import SwiftUI
 
-/// Which lesson to open, and whether to learn it or practise it.
 struct LessonRequest: Identifiable, Hashable {
   let course: String
   let lesson: Int
@@ -9,7 +8,6 @@ struct LessonRequest: Identifiable, Hashable {
   var id: String { "\(course)/\(lesson)/\(practice)" }
 }
 
-/// A lesson, full screen. It moves on to the next lesson, or into practice, in place.
 struct LessonScreen: View {
   @Environment(History.self) private var history
   @Environment(LearnProgress.self) private var progress
@@ -88,7 +86,6 @@ struct LessonView: View {
     .padding(.top, 4)
   }
 
-  /// The coach: what the opponent did, what to look for, and how your move landed.
   private var coach: some View {
     HStack(alignment: .top, spacing: 12) {
       Image(systemName: player.mood == .good ? "checkmark" : player.mood == .wrong ? "arrow.uturn.backward" : "graduationcap.fill")
@@ -109,7 +106,7 @@ struct LessonView: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(player.message)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .motionTransition(.opacity.combined(with: .move(edge: .bottom)))
         }
       }
       .scrollBounceBehavior(.basedOnSize)
@@ -136,12 +133,12 @@ struct LessonView: View {
       HStack(spacing: 12) {
         if player.canHint {
           SoftPill(title: "Hint", symbol: "lightbulb.fill") { player.hint() }
-            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            .motionTransition(.opacity.combined(with: .scale(scale: 0.9)))
         }
         Spacer(minLength: 0)
         if player.waiting {
           InkPill(title: "Continue", symbol: "arrow.right") { player.next() }
-            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            .motionTransition(.opacity.combined(with: .scale(scale: 0.9)))
         }
       }
       .frame(minHeight: 56)
@@ -166,8 +163,10 @@ struct LessonView: View {
         .accessibilityLabel("\(player.stars) of 3 stars")
       }
       HStack(spacing: 10) {
-        SoftPill(title: player.practice ? "Again" : "Practise", symbol: "arrow.clockwise") {
-          open(LessonRequest(course: player.course.id, lesson: index, practice: true))
+        if player.lesson.style == .play {
+          SoftPill(title: player.practice ? "Again" : "Practise", symbol: "arrow.clockwise") {
+            open(LessonRequest(course: player.course.id, lesson: index, practice: true))
+          }
         }
         if hasNext {
           InkPill(title: "Next lesson", symbol: "arrow.right") {
@@ -178,11 +177,10 @@ struct LessonView: View {
         }
       }
     }
-    .transition(.move(edge: .bottom).combined(with: .opacity))
+    .motionTransition(.move(edge: .bottom).combined(with: .opacity))
   }
 }
 
-/// A thin progress bar through the lesson's steps.
 struct ProgressTrack: View {
   let fraction: Double
 
@@ -201,7 +199,6 @@ struct ProgressTrack: View {
   }
 }
 
-/// A short horizontal shake each time `trigger` changes.
 struct Shake: ViewModifier {
   let trigger: Int
 

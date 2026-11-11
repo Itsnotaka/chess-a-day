@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Shared press feedback: scale and dim, or only dim under Reduce Motion.
 struct SoftPress: ButtonStyle {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -12,7 +11,21 @@ struct SoftPress: ButtonStyle {
   }
 }
 
-/// A round icon button, 52 points by default; `tint` overrides the card fill.
+extension View {
+  func motionTransition(_ transition: AnyTransition) -> some View {
+    modifier(MotionTransition(transition: transition))
+  }
+}
+
+private struct MotionTransition: ViewModifier {
+  let transition: AnyTransition
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  func body(content: Content) -> some View {
+    content.transition(reduceMotion ? .opacity : transition)
+  }
+}
+
 struct CircleIconButton: View {
   let symbol: String
   let label: String
@@ -34,7 +47,6 @@ struct CircleIconButton: View {
   }
 }
 
-/// A round button on a raised fill, for sheet and game headers.
 struct RaisedCircleButton: View {
   let symbol: String
   let label: String
@@ -54,7 +66,6 @@ struct RaisedCircleButton: View {
   }
 }
 
-/// The primary action, filled with the current ink colour.
 struct InkPill: View {
   let title: String
   var symbol: String?
@@ -78,7 +89,6 @@ struct InkPill: View {
   }
 }
 
-/// A quiet pill on the raised fill: the secondary action beside an `InkPill`.
 struct SoftPill: View {
   let title: String
   var symbol: String?
@@ -100,7 +110,6 @@ struct SoftPill: View {
   }
 }
 
-/// One level as a rounded row; the chosen one turns ink with a check and its description.
 struct LevelRow: View {
   let level: Level
   let selected: Bool
@@ -123,7 +132,7 @@ struct LevelRow: View {
               .foregroundStyle(Theme.ink)
               .frame(width: 26, height: 26)
               .background(Theme.onInk, in: Circle())
-              .transition(.scale.combined(with: .opacity))
+              .motionTransition(.scale.combined(with: .opacity))
           }
         }
         if selected {
@@ -145,7 +154,6 @@ struct LevelRow: View {
   }
 }
 
-/// A short choice, such as a reminder time or a clock.
 struct Chip: View {
   let title: String
   let selected: Bool
@@ -166,7 +174,6 @@ struct Chip: View {
   }
 }
 
-/// A sheet page's header: a round Back button and a centred title.
 struct SheetHeader: View {
   let title: String
   let back: () -> Void
@@ -185,7 +192,6 @@ struct SheetHeader: View {
   }
 }
 
-/// A settings row: symbol, title, chevron, hairline below.
 struct SettingsRowLabel: View {
   let symbol: String
   let title: String
@@ -204,7 +210,6 @@ struct SettingsRowLabel: View {
   }
 }
 
-/// A switch row; the switch is the system's, in ink.
 struct ToggleRow: View {
   let symbol: String
   let title: String
@@ -223,7 +228,6 @@ struct ToggleRow: View {
   }
 }
 
-/// A section label inside a sheet page.
 struct SectionLabel: View {
   let title: String
   var body: some View {
@@ -234,21 +238,15 @@ struct SectionLabel: View {
   }
 }
 
-/// A one-point divider using the theme's hairline colour.
 struct Hairline: View {
   var body: some View { Theme.hairline.frame(height: 1) }
 }
 
-/// A segmented picker with two label layers; the thumb masks the active layer.
-/// Dragging updates the binding continuously; tapping commits on lift.
-/// VoiceOver uses a system segmented picker instead of the custom gesture.
 struct PillSegments<Option: Hashable, Label: View>: View {
-  /// Must be nonempty and unique; selection should be one of these values.
   let options: [Option]
   @Binding var selection: Option
   var height: CGFloat = 40
   let name: (Option) -> String
-  /// One segment's content; `active` is true in the copy the thumb reveals.
   @ViewBuilder let label: (Option, Bool) -> Label
 
   @GestureState private var pressing = false
@@ -277,6 +275,10 @@ struct PillSegments<Option: Hashable, Label: View>: View {
           .mask { thumb }
       }
       .contentShape(Rectangle())
+      .onChange(of: pressing) { _, now in
+        // A cancelled drag skips onEnded, so the thumb snaps back here.
+        if !now, dragX != nil { withAnimation(motion) { dragX = nil } }
+      }
       .gesture(
         DragGesture(minimumDistance: 0)
           .updating($pressing) { _, state, _ in state = true }
@@ -327,13 +329,10 @@ struct PillSegments<Option: Hashable, Label: View>: View {
   }
 }
 
-/// Shows a spinner during an async action, then a success label or the idle state on failure.
-/// Calls `finished` after restoring idle on failure or briefly showing the success label.
 struct MorphPill: View {
   let title: String
   let doneTitle: String
   var symbol: String?
-  /// Return true for success; false restores the button for another attempt.
   let action: () async -> Bool
   var finished: (Bool) -> Void = { _ in }
 
@@ -349,7 +348,6 @@ struct MorphPill: View {
       Task {
         let started = ContinuousClock.now
         let ok = await action()
-        // Keep fast actions from flashing the spinner.
         let shown = ContinuousClock.now - started
         if shown < .milliseconds(450) { try? await Task.sleep(for: .milliseconds(450) - shown) }
         guard ok else {
@@ -370,16 +368,16 @@ struct MorphPill: View {
             if let symbol { Image(systemName: symbol).scaledFont(17, .bold) }
             Text(title).scaledFont(19, .bold)
           }
-          .transition(.opacity.combined(with: .scale(scale: 0.9)))
+          .motionTransition(.opacity.combined(with: .scale(scale: 0.9)))
         case .working:
           ProgressView().tint(Theme.onInk).transition(.opacity)
         case .done:
           HStack(spacing: 8) {
             Image(systemName: "checkmark").scaledFont(17, .heavy)
-              .transition(.scale.combined(with: .opacity))
+              .motionTransition(.scale.combined(with: .opacity))
             Text(doneTitle).scaledFont(19, .bold)
           }
-          .transition(.opacity.combined(with: .scale(scale: 0.9)))
+          .motionTransition(.opacity.combined(with: .scale(scale: 0.9)))
         }
       }
       .foregroundStyle(Theme.onInk)
@@ -398,7 +396,6 @@ struct MorphPill: View {
   }
 }
 
-/// Requires a second tap to confirm a destructive action; disarms after three seconds.
 struct ConfirmCircle: View {
   let symbol: String
   let title: String
@@ -434,7 +431,7 @@ struct ConfirmCircle: View {
             .scaledFont(17, .bold)
             .lineLimit(1)
             .fixedSize()
-            .transition(.opacity.combined(with: .move(edge: .leading)))
+            .motionTransition(.opacity.combined(with: .move(edge: .leading)))
         }
       }
       .foregroundStyle(armed ? Color.white : Theme.ink)
