@@ -29,7 +29,7 @@ Run every command below **from `apps/ios/`** (`cd apps/ios` from the repository 
 - From the repository root: `pnpm install`, `pnpm --filter web dev`, `pnpm --filter web typecheck`, `pnpm --filter web lint`.
 - Root `pnpm build`, `pnpm lint` and `pnpm typecheck` delegate to Turbo; they only operate on web tasks, never Swift.
 - `pnpm --filter web build` builds Next.js; `pnpm --filter web start` serves that build.
-- Vercel: Root Directory **`apps/web`**, framework **Next.js**, Node.js **24.x**. Enable access to files outside the Root Directory. Set `ENABLE_EXPERIMENTAL_COREPACK=1`, install command `cd ../.. && corepack pnpm install --frozen-lockfile`, build command `pnpm build`, default output directory. The root `packageManager` pins pnpm; no `vercel.json` is needed. Vercel supplies `VERCEL_PROJECT_PRODUCTION_URL` for metadata; local metadata falls back to `http://localhost:3000`.
+- Vercel: Root Directory **`apps/web`**, framework **Next.js**, Node.js **26.x** (engines `>=26`, `.node-version`). Enable access to files outside the Root Directory. Set `ENABLE_EXPERIMENTAL_COREPACK=1`, install command `cd ../.. && corepack pnpm install --frozen-lockfile`, build command `pnpm build`, default output directory. The root `packageManager` pins pnpm; no `vercel.json` is needed. Vercel supplies `VERCEL_PROJECT_PRODUCTION_URL` for metadata; local metadata falls back to `http://localhost:3000`.
 
 ## Web rules
 
