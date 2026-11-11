@@ -2,7 +2,7 @@
 
 A calm, one-game iPhone app: play the computer, plus one daily puzzle. Modelled on the
 minimalist daily Sudoku app: grey ground, one big white card, round icon buttons, sheets
-with a grabber, a day strip, big pill buttons. No glass, no account, no network, no Pro.
+with a grabber, a day strip, big pill buttons. Liquid Glass is reserved for the app icon; the interface uses quiet opaque surfaces. No account, no network, no Pro.
 
 Status: **SwiftUI app, UI polish phase.** Runs on the Simulator; next is your iPhone.
 
@@ -80,14 +80,14 @@ No placement test. The level can be changed at any time.
 - Each move ends your turn with a **one-day timeout**; your friend gets Game Center's turn notification. A turn left too long loses on time.
 - The match stores `{moves, whiteID}`; the board replays the moves through the same `GameStore` (mode `.online`), so rules, drag, sounds and VoiceOver are shared.
 - Checkmate, a draw or a resignation ends the match for both with won, lost or tied; a friend who resigns out of turn hands you the win. **Rematch** starts a new match with the same friend.
-- Home's **Online** tile shows how many games wait on you; the sheet lists games, your move first. Finished games can be removed with a long press.
+- Home's **Online** tile opens Apple's invite sheet straight away. With games going it opens a small menu instead: Invite a friend, then the games, your move first. Its badge counts games waiting on you. Signed out, it explains how to sign in.
 - Online games don't count toward the streak or Stats.
 - Needs the App Store Connect app record with Game Center (bundle `com.workgyver.chess`, Game Center capability enabled through asc). Testing needs two Game Center accounts.
 
 ## Free play
 
 - Two people, one phone. Either side moves in turn; there is no engine and no level.
-- Opened from the **Free play** tile on home (and from the Online sheet); it keeps its own saved game (`free-play.json`), so a computer game in progress is never lost.
+- Opened from the **Free play** tile on home; it keeps its own saved game (`free-play.json`), so a computer game in progress is never lost.
 - White plays from the bottom. **Turn Board in Free Play** (Game Settings) turns it to the side to move after each move; Flip turns it by hand.
 - The rows read White and Black; "To move" marks whose turn it is. Resign resigns for the side to move. The result reads "White wins", "Black wins" or "Draw".
 - The clock works as in a computer game. Free play doesn't count toward the streak.
@@ -180,7 +180,7 @@ tools/                      fetch-nnue.sh, sim.sh, device.sh, shots.sh, make-ico
 - **Reduce Motion**: presses only dim, onboarding steps fade instead of slide, pieces fade instead of slide, no pulse, no confetti.
 - **Contrast**: the level colours are a step deeper than Sudoku a Day's in light mode, so white on them and them on a light fill keep 3:1; in dark mode the symbol on a level colour is near-black. Dark-mode boards are mid-toned so black pieces never sink into them.
 - **Reminders** stay off when iOS won't deliver them: a blocked permission shows as such, with Open Settings.
-- **App icons**: Classic, Night and Mono, rendered from the knight by `tools/make-icons.swift`; the check moves only after `setAlternateIconName` succeeds.
+- **App icons**: the full-bleed B3 checkerboard with a purple knight, coral rook and yellow pawn. `Chess/AppIcon.icon` is the editable Liquid Glass source and the primary Home Screen icon. `tools/make-icons.swift` renders it for the onboarding mark and Classic, Night and Mono picker previews, and generates the Night and Mono alternate icons. The check moves only after `setAlternateIconName` succeeds.
 
 ## Later
 

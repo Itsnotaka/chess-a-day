@@ -1,0 +1,57 @@
+{
+  "features" : [
+    "specular-location"
+  ],
+  "fill" : "system-light",
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "04-Pawn.png",
+          "name" : "04-Pawn",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              -16,
+              -16
+            ]
+          }
+        },
+        {
+          "image-name" : "03-Rook 2.png",
+          "name" : "03-Rook 2"
+        },
+        {
+          "image-name" : "02-Knight.png",
+          "name" : "02-Knight"
+        },
+        {
+          "image-name" : "01-Board.svg",
+          "name" : "01-Board"
+        }
+      ],
+      "position" : {
+        "scale" : 1.2690000000000001,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.25
+      },
+      "specular" : "inside",
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.15
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

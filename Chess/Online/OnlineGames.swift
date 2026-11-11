@@ -41,6 +41,8 @@ final class OnlineGames: NSObject {
   private(set) var status = Status.unknown
   private(set) var summaries: [OnlineSummary] = []
   private(set) var busy = false
+  /// A sentence to show when online play can't start (signed out, offline).
+  var problem: String?
   /// Bumped when Game Center asks to show a game (an invite accepted, a turn notification tapped).
   private(set) var presentRequest = 0
   let store: GameStore
@@ -99,6 +101,20 @@ final class OnlineGames: NSObject {
   }
 
   // MARK: Invites and games
+
+  /// The Online tile's tap: Apple's invite sheet, or the reason it can't open yet.
+  func startInvite() {
+    switch status {
+    case .signedIn:
+      invite()
+    case .signedOut, .unknown:
+      problem = "Sign in to Game Center in the Settings app, then try again."
+      authenticate()
+    case let .unavailable(message):
+      problem = message
+      authenticate()
+    }
+  }
 
   /// Apple's friend picker, invite-only: Game Center friends, recent players, or Messages.
   func invite() {

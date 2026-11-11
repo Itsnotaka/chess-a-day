@@ -15,9 +15,7 @@ struct HomeView: View {
   @State private var settings: SettingsPage?
   @State private var playing: GameMode?
   @State private var showingStreak = false
-  @State private var showingFriends = false
-  /// What to open once the friends sheet has finished closing.
-  @State private var afterFriends: (() -> Void)?
+
   @State private var showingStats = false
 
   private var isToday: Bool { Calendar.current.isDateInToday(day) }
@@ -27,11 +25,12 @@ struct HomeView: View {
       topBar
       card
       HStack(spacing: 12) {
-        HomeTile(symbol: "iphone", title: "Free play",
-                 detail: games.friend.active ? "Game in progress" : "Two players, one phone",
-                 badge: nil) { playFriend() }
-        HomeTile(symbol: "paperplane.fill", title: "Online", detail: onlineDetail,
-                 badge: online.yourMoveCount > 0 ? "\(online.yourMoveCount)" : nil) { showingFriends = true }
+        Button { playFriend() } label: {
+          TileLabel(symbol: "iphone", title: "Free play",
+                    detail: games.friend.active ? "Game in progress" : "Two players, one phone", badge: nil)
+        }
+        .buttonStyle(SoftPress())
+        onlineTile
       }
       DayStrip(selected: $day)
     }
@@ -47,33 +46,15 @@ struct HomeView: View {
         .presentationCornerRadius(Theme.Radius.card)
         .presentationBackground(Theme.card)
     }
-    .sheet(isPresented: $showingFriends, onDismiss: {
-      afterFriends?()
-      afterFriends = nil
-    }) {
-      FriendsSheet(
-        passAndPlay: {
-          afterFriends = { playFriend() }
-          showingFriends = false
-        },
-        openOnline: { id in
-          afterFriends = { Task { await online.open(id); playing = .online } }
-          showingFriends = false
-        })
-        .presentationDetents([.fraction(0.74), .large])
-        .presentationDragIndicator(.visible)
-        .presentationCornerRadius(Theme.Radius.card)
-        .presentationBackground(Theme.card)
-    }
-    // Game Center opened a game (an accepted invite, a tapped turn notification): show it.
+    // Game Center opened a game (an invite sent or accepted, a turn notification tapped): show it.
     .onChange(of: online.presentRequest) {
-      if showingFriends {
-        afterFriends = { playing = .online }
-        showingFriends = false
-      } else if playing != .online {
-        settings = nil
-        playing = .online
-      }
+      settings = nil
+      playing = .online
+    }
+    .alert("Online play", isPresented: Binding(get: { online.problem != nil }, set: { if !$0 { online.problem = nil } })) {
+      Button("OK", role: .cancel) {}
+    } message: {
+      Text(online.problem ?? "")
     }
     .sheet(isPresented: $showingStreak) {
       StreakSheet()
@@ -98,7 +79,7 @@ struct HomeView: View {
       switch UserDefaults.standard.string(forKey: "debugOpen") {
       case "game"?: play()
       case "friend"?: playFriend()
-      case "online"?: showingFriends = true
+      case "online"?: online.startInvite()
       case let page?: settings = SettingsPage(rawValue: page.replacingOccurrences(of: "settings-", with: ""))
       case nil: break
       }
@@ -172,6 +153,33 @@ struct HomeView: View {
     .softShadow(radius: 30, y: 14)
   }
 
+  /// Online: straight to Apple's invite sheet, or, with games going, a menu of them under Invite.
+  @ViewBuilder
+  private var onlineTile: some View {
+    let games = online.summaries.filter { !$0.finished }
+    let label = TileLabel(symbol: "paperplane.fill", title: "Online", detail: onlineDetail,
+                          badge: online.yourMoveCount > 0 ? "\(online.yourMoveCount)" : nil)
+    if games.isEmpty {
+      Button { online.startInvite() } label: { label }
+        .buttonStyle(SoftPress())
+    } else {
+      Menu {
+        Button("Invite a friend", systemImage: "paperplane") { online.startInvite() }
+        Section("Your games") {
+          ForEach(games) { game in
+            Button("\(game.opponent) · \(game.label)", systemImage: game.state == .yourMove ? "circle.fill" : "circle") {
+              Task {
+                await online.open(game.id)
+                playing = .online
+              }
+            }
+          }
+        }
+      } label: { label }
+        .buttonStyle(SoftPress())
+    }
+  }
+
   private var onlineDetail: String {
     let count = online.yourMoveCount
     if count > 0 { return count == 1 ? "Your move" : "Your move in \(count)" }
@@ -208,45 +216,42 @@ struct HomeView: View {
 }
 
 /// A half-width tile under the card: a round symbol, a title, one line, and an optional count.
-struct HomeTile: View {
+struct TileLabel: View {
   let symbol: String
   let title: String
   let detail: String
   let badge: String?
-  let action: () -> Void
 
   var body: some View {
-    Button(action: action) {
-      VStack(alignment: .leading, spacing: 10) {
-        HStack(alignment: .top) {
-          Image(systemName: symbol)
-            .font(.system(size: 17, weight: .bold))
-            .foregroundStyle(Theme.ink)
-            .frame(width: 42, height: 42)
-            .background(Theme.raised, in: Circle())
-          Spacer(minLength: 0)
-          if let badge {
-            Text(badge)
-              .scaledFont(14, .heavy)
-              .foregroundStyle(Theme.onInk)
-              .frame(minWidth: 26, minHeight: 26)
-              .background(Theme.ink, in: Capsule())
-              .transition(.scale.combined(with: .opacity))
-          }
-        }
-        VStack(alignment: .leading, spacing: 2) {
-          Text(title).scaledFont(17, .bold).foregroundStyle(Theme.ink)
-          Text(detail).scaledFont(14, .semibold).foregroundStyle(Theme.inkMuted).lineLimit(1)
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .top) {
+        Image(systemName: symbol)
+          .font(.system(size: 17, weight: .bold))
+          .foregroundStyle(Theme.ink)
+          .frame(width: 42, height: 42)
+          .background(Theme.raised, in: Circle())
+        Spacer(minLength: 0)
+        if let badge {
+          Text(badge)
+            .scaledFont(14, .heavy)
+            .foregroundStyle(Theme.onInk)
+            .frame(minWidth: 26, minHeight: 26)
+            .background(Theme.ink, in: Capsule())
+            .transition(.scale.combined(with: .opacity))
         }
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(14)
-      .background(Theme.card, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-      .softShadow(radius: 16, y: 6)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).scaledFont(17, .bold).foregroundStyle(Theme.ink)
+        Text(detail).scaledFont(14, .semibold).foregroundStyle(Theme.inkMuted).lineLimit(1)
+      }
     }
-    .buttonStyle(SoftPress())
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(14)
+    .background(Theme.card, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+    .softShadow(radius: 16, y: 6)
+    .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
     .accessibilityElement(children: .combine)
-    .accessibilityHint(badge.map { "\($0) waiting" } ?? "")
+    .accessibilityHint(badge.map { "\($0) waiting on your move" } ?? "")
   }
 }
 
