@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A point size that follows Dynamic Type, scaled against the text style nearest its size.
+/// Scales a base point size with Dynamic Type using a size-based reference style.
 struct ScaledFont: ViewModifier {
   @ScaledMetric private var size: CGFloat
   private let weight: Font.Weight
@@ -14,6 +14,7 @@ struct ScaledFont: ViewModifier {
     content.font(.system(size: size, weight: weight))
   }
 
+  /// Selects the scaling curve from the unscaled point size.
   private static func style(for size: CGFloat) -> Font.TextStyle {
     switch size {
     case 30...: .largeTitle

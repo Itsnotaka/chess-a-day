@@ -2,8 +2,8 @@ import ChessKit
 import Foundation
 import Observation
 
-/// A game against the computer, as saved: the moves in UCI form plus the clocks.
-/// The board is always rebuilt by replaying `moves`, so the file can never disagree with it.
+/// Game state shared by all modes; computer and free-play games are saved locally.
+/// The board is rebuilt from `startFEN` and the legal prefix of the UCI moves.
 struct SavedGame: Codable, Sendable {
   var moves: [String] = []
   var you: Piece.Color
@@ -15,11 +15,33 @@ struct SavedGame: Codable, Sendable {
   var blackLeft: TimeInterval
   var ending: Ending?
   var recorded = false
+  /// A lesson can start from any position; games start from the usual one.
+  var startFEN: String?
 
+  /// Endings not derived from the board; the associated color is the losing side.
   enum Ending: Codable, Equatable, Sendable {
     case resigned(Piece.Color)
     case flagged(Piece.Color)
   }
+}
+
+/// An arrow the coach draws on the board, from one square to another, in the author's colour.
+struct BoardArrow: Hashable, Sendable {
+  let from: Square
+  let to: Square
+  var color: GuideColor = .green
+}
+
+/// A square the coach circles.
+struct BoardMark: Hashable, Sendable {
+  let square: Square
+  var color: GuideColor = .green
+}
+
+/// What a lesson hears about a move made on its board.
+enum LessonAnswer: Sendable {
+  case correct
+  case wrong(san: String)
 }
 
 /// A piece as the board draws it: `id` follows the piece from square to square, so it slides.
@@ -28,13 +50,14 @@ struct BoardPiece: Identifiable, Equatable {
   let piece: Piece
 }
 
-/// Against the computer, two people passing one phone, or a friend online through Game Center.
+/// Against the computer, two people passing one phone, a friend online through Game Center,
+/// or a lesson, where the board accepts only the move being taught.
 enum GameMode: String, Identifiable, Sendable {
-  case computer, friend, online
+  case computer, friend, online, lesson
   var id: Self { self }
 }
 
-/// How a game ended, from the point of view the screen speaks from.
+/// Player-relative results, or a named winning side in free play.
 enum GameResult: Equatable {
   case win, loss, draw, winner(Piece.Color)
 
@@ -49,6 +72,7 @@ enum GameResult: Equatable {
   }
 }
 
+/// Main-actor game state; board positions are derived only by replaying saved moves.
 @MainActor
 @Observable
 final class GameStore {
@@ -67,12 +91,22 @@ final class GameStore {
   var selected: Square?
   var promotion: (from: Square, to: Square)?
 
-  /// Online only: the friend's name, and whether the turn is theirs (or the match closed).
+  /// Lessons only: the UCI move accepted from the player; nil disables input.
+  var lessonExpected: String?
+  private(set) var arrows: [BoardArrow] = []
+  private(set) var marks: [BoardMark] = []
+  /// Reports whether a legal player move matches the lesson.
+  var onLessonMove: ((LessonAnswer) -> Void)?
+
+  /// Online opponent's display name.
   private(set) var opponentName = ""
+  /// Blocks online input while waiting for the opponent or after the match closes.
   private(set) var waitingForOpponent = false
-  /// Online only: `OnlineGames` sends each move, resignation and rematch to Game Center.
+  /// Sends a local online move through `OnlineGames` to Game Center.
   var onlineSubmit: ((SavedGame) -> Void)?
+  /// Delegates online resignation to `OnlineGames`.
   var onlineResign: (() -> Void)?
+  /// Requests a rematch through `OnlineGames`.
   var onlineRematch: (() -> Void)?
 
   let mode: GameMode
@@ -83,7 +117,7 @@ final class GameStore {
     self.mode = mode
     self.history = history
     url = Storage.file("\(mode.rawValue)-game.json")
-    saved = mode == .online ? nil : Storage.read(SavedGame.self, from: url)
+    saved = mode == .online || mode == .lesson ? nil : Storage.read(SavedGame.self, from: url)
     rebuild()
     // A relaunch can land between your saved move and the computer's reply: resume it.
     replyIfNeeded()
@@ -99,7 +133,38 @@ final class GameStore {
     case .friend: active && !thinking
     case .computer: active && !thinking && board.position.sideToMove == you
     case .online: active && !waitingForOpponent && board.position.sideToMove == you
+    case .lesson: active && lessonExpected != nil && board.position.sideToMove == you
     }
+  }
+
+  // MARK: Lessons
+
+  /// A fresh board for a lesson, played as `you`, from `fen` or the usual start.
+  func startLesson(you: Piece.Color, fen: String?) {
+    saved = SavedGame(you: you, level: .medium, timeControl: .none, startedAt: .now, lastMoveAt: .now, whiteLeft: 0, blackLeft: 0)
+    saved?.startFEN = fen
+    selected = nil
+    promotion = nil
+    flipped = false
+    lessonExpected = nil
+    arrows = []
+    marks = []
+    rebuild()
+  }
+
+  /// The lesson's own move for the side it scripts, played with the usual slide and sound.
+  func playScripted(_ uci: String) { play(uci) }
+
+  /// A SAN move read against the current position, as UCI ("Nbd2" -> "b1d2").
+  func uci(forSAN san: String) -> String? {
+    guard let move = Move(san: san, position: board.position) else { return nil }
+    return move.start.notation + move.end.notation + (move.promotedPiece.map { $0.kind.uciLetter } ?? "")
+  }
+
+  /// Replaces the lesson's board annotations.
+  func guide(arrows: [BoardArrow], marks: [BoardMark]) {
+    self.arrows = arrows
+    self.marks = marks
   }
 
   /// Shows a game Game Center sent: the moves so far, who the friend is, and whose turn it is.
@@ -189,7 +254,8 @@ final class GameStore {
 
   var moveCount: Int { ((saved?.moves.count ?? 0) + 1) / 2 }
 
-  /// Time left on a side's clock at `now`, counting the running side down.
+  /// Seconds remaining, possibly negative; nil for untimed games.
+  /// Clocks start after the first move and keep running while the app is closed.
   func timeLeft(_ color: Piece.Color, at now: Date) -> TimeInterval? {
     guard let saved, saved.timeControl.base != nil else { return nil }
     let stored = color == .white ? saved.whiteLeft : saved.blackLeft
@@ -276,6 +342,21 @@ final class GameStore {
     selected = nil
     let piece = board.position.piece(at: from)
     let promotes = piece?.kind == .pawn && (to.rank.value == 8 || to.rank.value == 1)
+    if mode == .lesson {
+      // Only the taught move goes through; anything else settles back and the coach answers.
+      let uci = from.notation + to.notation + (promotes ? "q" : "")
+      guard uci == lessonExpected else {
+        var trial = board
+        let san = Self.apply(uci, to: &trial)?.san ?? uci
+        Haptics.miss()
+        onLessonMove?(.wrong(san: san))
+        return
+      }
+      lessonExpected = nil
+      play(uci)
+      onLessonMove?(.correct)
+      return
+    }
     if promotes && !UserDefaults.standard.bool(forKey: Pref.autoQueen) {
       promotion = (from, to)
       return
@@ -322,6 +403,7 @@ final class GameStore {
       let elapsed = ContinuousClock.now - started
       if elapsed < level.minimumThink { try? await Task.sleep(for: level.minimumThink - elapsed) }
       thinking = false
+      // Discard a reply if the position changed while the engine was searching.
       guard let move, self.board.position.fen == fen, active else { return }
       play(move)
     }
@@ -343,7 +425,7 @@ final class GameStore {
   }
 
   private func persist() {
-    guard mode != .online else { return }
+    guard mode != .online, mode != .lesson else { return }
     if let saved { Storage.write(saved, to: url) } else { Storage.remove(url) }
   }
 
@@ -351,7 +433,7 @@ final class GameStore {
 
   /// Replays the saved moves, keeping each piece's id from the square it started on.
   private func rebuild() {
-    var board = Board()
+    var board = Board(position: saved?.startFEN.flatMap(Position.init(fen:)) ?? .standard)
     var ids = Dictionary(uniqueKeysWithValues: board.position.pieces.map { ($0.square, "\($0.color.rawValue)\($0.kind.rawValue)-\($0.square.notation)") })
     var mine: [Piece] = []
     var theirs: [Piece] = []
@@ -423,6 +505,7 @@ extension Piece.Kind {
     }
   }
 
+  /// Conventional material value, used to sort captured pieces.
   var worth: Int {
     switch self {
     case .queen: 9
@@ -444,7 +527,7 @@ extension Piece.Kind {
     }
   }
 
-  /// The asset name's letter: "wN", "bP".
+  /// Piece letter in an asset name; pawns need "P" rather than their raw value.
   var assetLetter: String { self == .pawn ? "P" : rawValue }
 }
 

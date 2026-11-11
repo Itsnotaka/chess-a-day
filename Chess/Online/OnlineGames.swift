@@ -3,7 +3,7 @@ import GameKit
 import Observation
 import UIKit
 
-/// What a match stores on Game Center: the moves, and who plays White.
+/// Game Center payload: UCI moves and White’s player ID.
 struct OnlineMatchData: Codable, Sendable {
   var moves: [String]
   var whiteID: String
@@ -51,6 +51,7 @@ final class OnlineGames: NSObject {
   private var openID: String?
   private weak var matchmaker: UIViewController?
 
+  /// Seconds allowed for each turn.
   static let turnTimeout: TimeInterval = 24 * 60 * 60
 
   init(history: History) {
@@ -130,6 +131,7 @@ final class OnlineGames: NSObject {
     Presenter.present(controller)
   }
 
+  /// Reloads the match list and, if still present, the open game.
   func refresh() async {
     guard GKLocalPlayer.local.isAuthenticated else { return }
     let loaded = (try? await GKTurnBasedMatch.loadMatches()) ?? []
@@ -145,7 +147,7 @@ final class OnlineGames: NSObject {
     await load(match)
   }
 
-  /// Removes a finished game from the list (and from Game Center for this player).
+  /// Removes a match for this player; callers must restrict this to finished games.
   func remove(_ id: String) async {
     guard let match = matches[id] else { return }
     try? await match.remove()
@@ -157,7 +159,7 @@ final class OnlineGames: NSObject {
   private func load(_ match: GKTurnBasedMatch) async {
     let data = (try? await match.loadMatchData()).flatMap { try? JSONDecoder().decode(OnlineMatchData.self, from: $0) }
     let me = GKLocalPlayer.local.gamePlayerID
-    // Whoever started the match plays White and sends the first move.
+    // Before the first payload, assume the first participant is White; fall back to us.
     let whiteID = data?.whiteID ?? match.participants.first?.player?.gamePlayerID ?? me
     let you: Piece.Color = whiteID == me ? .white : .black
     let mine = match.participants.first { $0.player?.gamePlayerID == me }
@@ -174,7 +176,7 @@ final class OnlineGames: NSObject {
       saved,
       opponent: theirs?.player?.displayName ?? "Your friend",
       waiting: match.currentParticipant?.player?.gamePlayerID != me || match.status != .open)
-    // A friend who resigned or ran out of time hands you the win; close the match for both.
+    // Finalise an external ending only when Game Center gives us the turn.
     if saved.ending != nil, match.status == .open, match.currentParticipant?.player?.gamePlayerID == me {
       await endMatch(match, saved: saved)
     }
@@ -277,6 +279,7 @@ final class OnlineGames: NSObject {
       updated: [mine?.lastTurnDate, theirs?.lastTurnDate, match.creationDate].compactMap { $0 }.max() ?? match.creationDate)
   }
 
+  /// Your turns first, finished games last; newest first within each group.
   private func order(_ summary: OnlineSummary) -> (Int, TimeInterval) {
     let rank = switch summary.state {
     case .yourMove: 0
@@ -341,7 +344,7 @@ extension OnlineGames: GKTurnBasedMatchmakerViewControllerDelegate {
   }
 }
 
-/// Presents a UIKit controller (Game Center's sheets) over whatever is on screen.
+/// Presents above the topmost controller in the first connected scene with a key window.
 @MainActor
 enum Presenter {
   static func present(_ controller: UIViewController) {

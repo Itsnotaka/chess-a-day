@@ -1,11 +1,12 @@
 import ChessKit
 import SwiftUI
 
-/// Home: the round buttons, the day's card with Play, Free play, and the day strip.
+/// Computer-game entry point, local and online play, and recent-day history.
 struct HomeView: View {
   @Environment(GameStore.self) private var game
   @Environment(Games.self) private var games
   @Environment(OnlineGames.self) private var online
+  @Environment(LearnProgress.self) private var learning
   @Environment(History.self) private var history
   @AppStorage(Pref.level) private var level = Level.medium
   @AppStorage(Pref.timeControl) private var timeControl = TimeControl.none
@@ -14,6 +15,10 @@ struct HomeView: View {
   @State private var settings: SettingsPage?
   @State private var playing: GameMode?
   @State private var showingStreak = false
+  @State private var showingLearn = false
+  @State private var lesson: LessonRequest?
+  /// A lesson picked in the Learn sheet opens once the sheet has gone.
+  @State private var afterLearn: LessonRequest?
 
   @State private var showingStats = false
 
@@ -23,10 +28,14 @@ struct HomeView: View {
     VStack(spacing: 18) {
       topBar
       card
-      HStack(spacing: 12) {
+      HStack(spacing: 10) {
+        Button { showingLearn = true } label: {
+          TileLabel(symbol: "graduationcap.fill", title: "Learn", detail: learnDetail, badge: nil)
+        }
+        .buttonStyle(SoftPress())
         Button { playFriend() } label: {
           TileLabel(symbol: "iphone", title: "Free play",
-                    detail: games.friend.active ? "Game in progress" : "Two players, one phone", badge: nil)
+                    detail: games.friend.active ? "In progress" : "One phone", badge: nil)
         }
         .buttonStyle(SoftPress())
         onlineTile
@@ -35,13 +44,13 @@ struct HomeView: View {
     }
     .padding(.horizontal, 20)
     .padding(.top, 8)
-    // One screen with no scrolling: it grows to the largest standard size; sheets go further.
+    // Cap text size to keep the non-scrolling home screen usable.
     .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     .background(Theme.ground.ignoresSafeArea())
     .sheet(item: $settings) { page in
       SettingsSheet(start: page)
     }
-    // Game Center opened a game (an invite sent or accepted, a turn notification tapped): show it.
+    // Dismiss settings before presenting a game requested by Game Center.
     .onChange(of: online.presentRequest) {
       settings = nil
       playing = .online
@@ -50,6 +59,18 @@ struct HomeView: View {
       Button("OK", role: .cancel) {}
     } message: {
       Text(online.problem ?? "")
+    }
+    .sheet(isPresented: $showingLearn, onDismiss: {
+      lesson = afterLearn
+      afterLearn = nil
+    }) {
+      LearnSheet { request in
+        afterLearn = request
+        showingLearn = false
+      }
+    }
+    .fullScreenCover(item: $lesson) { request in
+      LessonScreen(request: request)
     }
     .sheet(isPresented: $showingStreak) {
       FittedSheet { StreakSheet() }
@@ -67,6 +88,9 @@ struct HomeView: View {
       case "game"?: play()
       case "friend"?: playFriend()
       case "online"?: online.startInvite()
+      case "learn"?: showingLearn = true
+      case let page? where page.hasPrefix("lesson-"):
+        lesson = LessonRequest(course: String(page.dropFirst(7)), lesson: 1, practice: false)
       case let page?: settings = SettingsPage(rawValue: page.replacingOccurrences(of: "settings-", with: ""))
       case nil: break
       }
@@ -140,7 +164,7 @@ struct HomeView: View {
     .softShadow(radius: 30, y: 14)
   }
 
-  /// Online: straight to Apple's invite sheet, or, with games going, a menu of them under Invite.
+  /// Opens an invite directly when no games are active; otherwise offers a game menu.
   @ViewBuilder
   private var onlineTile: some View {
     let games = online.summaries.filter { !$0.finished }
@@ -169,8 +193,13 @@ struct HomeView: View {
 
   private var onlineDetail: String {
     let count = online.yourMoveCount
-    if count > 0 { return count == 1 ? "Your move" : "Your move in \(count)" }
-    return online.summaries.contains { !$0.finished } ? "Games in progress" : "Invite a friend"
+    if count > 0 { return count == 1 ? "Your move" : "\(count) waiting" }
+    return online.summaries.contains { !$0.finished } ? "In progress" : "Invite"
+  }
+
+  private var learnDetail: String {
+    let started = Courses.all.first { learning.learned(in: $0) > 0 && learning.learned(in: $0) < $0.lessons.count }
+    return started?.title ?? "\(Courses.all.count) courses"
   }
 
   private var status: String {
@@ -203,7 +232,7 @@ struct HomeView: View {
   }
 }
 
-/// A half-width tile under the card: a round symbol, a title, one line, and an optional count.
+/// Shared play-mode tile with an optional waiting-turn count.
 struct TileLabel: View {
   let symbol: String
   let title: String
@@ -243,7 +272,7 @@ struct TileLabel: View {
   }
 }
 
-/// White · Random · Black. It owns the stored choice, so a tap redraws only this control.
+/// Stores the preferred side locally rather than binding it through HomeView.
 struct SidePicker: View {
   @AppStorage(Pref.side) private var side = SidePreference.white
 
@@ -262,7 +291,7 @@ struct SidePicker: View {
   }
 }
 
-/// Five days around the chosen one; each ring fills as its game and puzzle are done.
+/// Today, the previous three days, and disabled tomorrow, with completion rings.
 struct DayStrip: View {
   @Binding var selected: Date
   @Environment(History.self) private var history
@@ -305,7 +334,7 @@ struct DayStrip: View {
   }
 }
 
-/// Dashed when nothing is done, half when one of the two is, filled with a check for both.
+/// Game/puzzle completion count: dashed for zero, half for one, checked for two.
 struct DayRing: View {
   let count: Int
 

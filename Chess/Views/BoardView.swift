@@ -31,7 +31,7 @@ struct BoardGeometry {
   }
 }
 
-/// The playable board: tap a piece then a square, or drag it; legal moves show as dots.
+/// Tap or drag to move, with optional legal-move dots and capture rings.
 struct BoardView: View {
   @Environment(GameStore.self) private var game
   @AppStorage(Pref.coordinates) private var coordinates = true
@@ -69,13 +69,15 @@ struct BoardView: View {
   private func board(_ geometry: BoardGeometry) -> some View {
     ZStack(alignment: .topLeading) {
       squares(geometry)
+      marks(geometry)
       pieces(geometry).accessibilityHidden(true)
+      arrows(geometry)
     }
     .frame(width: geometry.size, height: geometry.size)
     .contentShape(Rectangle())
     .gesture(input(geometry))
     .onChange(of: touching) { _, now in
-      // A drag the system cancelled never reaches onEnded: settle the piece back.
+      // Cancellation skips onEnded; yield so a normal drop can clear its drag first.
       guard !now else { return }
       Task { @MainActor in
         await Task.yield()
@@ -171,8 +173,7 @@ struct BoardView: View {
     .joined(separator: ", ")
   }
 
-  /// One view per piece, also while it is dragged: lifted under the finger, then settling into
-  /// its new square, or back to its own when the drop is not legal.
+  /// Stable piece IDs keep the dragged view alive through a move or an invalid drop.
   private func pieces(_ geometry: BoardGeometry) -> some View {
     ForEach(game.pieces) { item in
       let lifted = dragPoint != nil && dragFrom == item.piece.square
@@ -190,12 +191,38 @@ struct BoardView: View {
     .animation(settle, value: game.pieces)
   }
 
+  /// Squares the coach points at: a soft ring under the pieces.
+  private func marks(_ geometry: BoardGeometry) -> some View {
+    ForEach(game.marks, id: \.self) { mark in
+      Circle()
+        .strokeBorder(mark.color.board, lineWidth: geometry.cell * 0.08)
+        .frame(width: geometry.cell * 0.9, height: geometry.cell * 0.9)
+        .position(geometry.center(mark.square))
+        .transition(.scale(scale: 0.6).combined(with: .opacity))
+    }
+    .animation(settle, value: game.marks)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+
+  /// Coach arrows above the pieces, ending at each target's centre.
+  private func arrows(_ geometry: BoardGeometry) -> some View {
+    ForEach(game.arrows, id: \.self) { arrow in
+      ArrowShape(from: geometry.center(arrow.from), to: geometry.center(arrow.to), width: geometry.cell * 0.17)
+        .fill(arrow.color.board)
+        .transition(.opacity)
+    }
+    .animation(.easeOut(duration: 0.25), value: game.arrows)
+    .allowsHitTesting(false)
+    .accessibilityHidden(true)
+  }
+
   /// The piece rides a little above the fingertip, so the finger doesn't hide it.
   private func lift(_ point: CGPoint, _ geometry: BoardGeometry) -> CGPoint {
     CGPoint(x: point.x, y: point.y - geometry.cell * 0.45)
   }
 
-  /// One gesture for both: a touch that barely moves is a tap, past 6 points it is a drag.
+  /// A controlled piece starts dragging after 6 points; other touches resolve as taps.
   private func input(_ geometry: BoardGeometry) -> some Gesture {
     DragGesture(minimumDistance: 0)
       .updating($touching) { _, state, _ in state = true }
@@ -293,5 +320,33 @@ struct MiniBoard: View {
     .overlay {
       RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.Board.edge, lineWidth: 2)
     }
+  }
+}
+
+/// A straight arrow with a rounded tail and a wide head ending at the target centre.
+struct ArrowShape: Shape {
+  let from: CGPoint
+  let to: CGPoint
+  let width: CGFloat
+
+  func path(in rect: CGRect) -> Path {
+    let dx = to.x - from.x, dy = to.y - from.y
+    let length = max(hypot(dx, dy), 1)
+    let ux = dx / length, uy = dy / length
+    let head = width * 2.4
+    let start = CGPoint(x: from.x + ux * width * 1.2, y: from.y + uy * width * 1.2)
+    let neck = CGPoint(x: to.x - ux * head, y: to.y - uy * head)
+    let nx = -uy, ny = ux
+    var path = Path()
+    path.move(to: CGPoint(x: start.x + nx * width / 2, y: start.y + ny * width / 2))
+    path.addLine(to: CGPoint(x: neck.x + nx * width / 2, y: neck.y + ny * width / 2))
+    path.addLine(to: CGPoint(x: neck.x + nx * head * 0.62, y: neck.y + ny * head * 0.62))
+    path.addLine(to: to)
+    path.addLine(to: CGPoint(x: neck.x - nx * head * 0.62, y: neck.y - ny * head * 0.62))
+    path.addLine(to: CGPoint(x: neck.x - nx * width / 2, y: neck.y - ny * width / 2))
+    path.addLine(to: CGPoint(x: start.x - nx * width / 2, y: start.y - ny * width / 2))
+    path.addArc(center: start, radius: width / 2, startAngle: .radians(atan2(-ny, -nx)), endAngle: .radians(atan2(ny, nx)), clockwise: false)
+    path.closeSubpath()
+    return path
   }
 }

@@ -1,14 +1,14 @@
 import ChessKit
 import SwiftUI
 
-/// The board's colours. Each theme has a light square and a dark square, in light and dark mode.
-/// Dark mode keeps the squares mid-toned, so black pieces never sink into them.
+/// Square palettes with mid-toned dark-mode colours to keep black pieces visible.
 enum BoardTheme: String, CaseIterable, Identifiable, Sendable {
   case stone, sand, sage, sky, lilac
 
   var id: Self { self }
   var name: String { rawValue.capitalized }
 
+  /// Colour of a light square in either appearance.
   var light: Color {
     switch self {
     case .stone: Color(light: 0xFAFAFA, dark: 0xA3A3A3)
@@ -19,6 +19,7 @@ enum BoardTheme: String, CaseIterable, Identifiable, Sendable {
     }
   }
 
+  /// Colour of a dark square in either appearance.
   var dark: Color {
     switch self {
     case .stone: Color(light: 0xDCDCDC, dark: 0x787878)
@@ -45,5 +46,18 @@ enum PieceSet: String, CaseIterable, Identifiable, Sendable {
   }
 
   func image(_ piece: Piece) -> Image { Image("\(rawValue)/\(piece.assetName)") }
+  /// Looks up an asset name within this set, without a folder prefix.
   func image(_ name: String) -> Image { Image("\(rawValue)/\(name)") }
+}
+
+extension GuideColor {
+  /// A study author's colour on the board, in this app's palette.
+  var board: Color {
+    switch self {
+    case .green: Theme.Board.guide
+    case .red: Color(light: 0xE0362A, dark: 0xFF6767, lightAlpha: 0.78, darkAlpha: 0.82)
+    case .blue: Color(light: 0x007AFF, dark: 0x0A84FF, lightAlpha: 0.75, darkAlpha: 0.8)
+    case .yellow: Color(light: 0xE5B400, dark: 0xFFCC34, lightAlpha: 0.85, darkAlpha: 0.85)
+    }
+  }
 }

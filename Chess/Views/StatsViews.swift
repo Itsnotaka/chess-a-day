@@ -1,7 +1,7 @@
 import Charts
 import SwiftUI
 
-/// The streak: the current run, the best, and this week's rings.
+/// Current and best streaks, with rings for the seven days ending today.
 struct StreakSheet: View {
   @Environment(History.self) private var history
 
@@ -46,6 +46,7 @@ struct StreakSheet: View {
     .padding(.bottom, 16)
   }
 
+  /// Spoken completion state for a day ring; a missing mark means nothing played.
   static func describe(_ mark: DayMark?) -> String {
     switch (mark?.game ?? false, mark?.puzzle ?? false) {
     case (true, true): "game and puzzle done"
@@ -60,6 +61,7 @@ struct StreakSheet: View {
 struct StatsSheet: View {
   @Environment(History.self) private var history
 
+  /// One level/outcome segment of the stacked results chart.
   private struct Bar: Identifiable {
     let level: Level
     let outcome: GameRecord.Outcome

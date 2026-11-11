@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// A sheet as tall as what it shows. Its content reports its height, and the sheet's detent
-/// follows it on a spring, so the sheet grows and shrinks as its content changes. Content taller
-/// than the screen scrolls inside a large sheet.
+/// Fits a sheet detent to measured content, with scrolling when the content exceeds the screen.
+/// Height changes use a spring, or easing under Reduce Motion.
 struct FittedSheet<Content: View>: View {
   @ViewBuilder let content: Content
   @State private var height: CGFloat?
@@ -14,9 +13,10 @@ struct FittedSheet<Content: View>: View {
       content
         .frame(maxWidth: .infinity)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured in
+          // Leave room below the content without rounding its height down.
           let target = ceil(measured) + 16
           guard height != target else { return }
-          // The first height lands at once; every later one morphs.
+          // Avoid animating from the initial medium detent.
           if height == nil { height = target } else {
             withAnimation(reduceMotion ? .easeOut(duration: 0.2) : Theme.sheetResize) { height = target }
           }

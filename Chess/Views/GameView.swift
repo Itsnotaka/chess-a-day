@@ -2,8 +2,7 @@ import ChessKit
 import SwiftUI
 import Vortex
 
-/// A game against the computer, full screen. Top to bottom: header, the computer, the board,
-/// you, the moves so far, and the bar with Resign and Flip (the result card when it ends).
+/// Shared full-screen game layout, with player rows, moves and an inline result card.
 struct GameView: View {
   @Environment(GameStore.self) private var game
   @Environment(\.dismiss) private var dismiss
@@ -45,7 +44,7 @@ struct GameView: View {
     }
   }
 
-  /// One side's row: the computer or you against the computer, White or Black in free play.
+  /// Names and turn status depend on the mode; row position follows board orientation.
   private func player(_ color: Piece.Color, now: Date) -> some View {
     let colorName = color == .white ? "White" : "Black"
     let toMove = game.active && game.sideToMove == color
@@ -153,14 +152,14 @@ struct GameView: View {
     }
   }
 
+  /// Whole minutes and seconds, rounded down and clamped at zero.
   static func clock(_ seconds: TimeInterval) -> String {
     let total = max(Int(seconds.rounded(.down)), 0)
     return String(format: "%d:%02d", total / 60, total % 60)
   }
 }
 
-/// A player above or below the board: who, what they have taken, and either their clock or
-/// a badge saying whose move it is.
+/// Player identity and captures, with optional turn status and clock.
 struct PlayerRow: View {
   @AppStorage(Pref.pieceSet) private var pieceSet = PieceSet.cburnett
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -228,7 +227,7 @@ struct PlayerRow: View {
   }
 }
 
-/// The moves so far as numbered pairs, scrolled to the latest.
+/// SAN moves in numbered pairs; new moves scroll the latest pair into view.
 struct MoveList: View {
   let moves: [String]
 
@@ -272,7 +271,7 @@ struct MoveList: View {
   }
 }
 
-/// Confetti in the level colours when the game is won.
+/// Bursts when the result changes to a win, including a free-play winner.
 private struct Celebration: View {
   let result: GameResult?
 

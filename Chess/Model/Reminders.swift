@@ -5,6 +5,7 @@ import UserNotifications
 enum Reminders {
   private static let id = "daily-reminder"
 
+  /// Authorization status, not a guarantee that alerts will be delivered.
   enum Permission { case unknown, allowed, blocked }
 
   static func permission() async -> Permission {
@@ -15,7 +16,8 @@ enum Reminders {
     }
   }
 
-  /// Asks if needed, then schedules; false when the person or iOS said no.
+  /// Requests permission if needed, then attempts to schedule.
+  /// Returns authorization success; scheduling errors are ignored.
   /// `minute` counts from midnight: 540 is 9:00.
   static func enable(minute: Int) async -> Bool {
     let center = UNUserNotificationCenter.current()

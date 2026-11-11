@@ -59,7 +59,7 @@ No placement test. The level can be changed at any time.
 
 - **Top bar**, round 52 pt buttons: **Level** (filled with the level's colour, opens Difficulty) · **Streak** (laurel: the current run, the best, this week's rings) | **Stats** (bars: played, won, drawn, lost, and a Swift Charts bar chart by level) · **Settings** (gear). Awards come back when they exist; nothing on home opens a placeholder.
 - **The card** (white, 36 pt radius, soft shadow): the weekday in faded heavy type over the date in bold heavy type ("Thursday / May 15"), a status line ("● Your move" for a game in progress, "Today's game: won" and so on), a slightly tilted board preview (the game in progress, else the start position) with a black **Play** pill over it, and a three-way **White · Random · Black** picker under it ("Playing as White · Medium" while a game is in progress).
-- **Two tiles** under the card: **Free play** (one phone) and **Online** (with a count of games waiting on you). The **Daily puzzle** joins them once puzzles ship.
+- **Three tiles** under the card: **Learn**, **Free play** (one phone) and **Online** (with a count of games waiting on you). The **Daily puzzle** joins them once puzzles ship.
 - Choosing a past day on the strip shows what was played that day; the card's pill becomes **Back to today**, so the heading never disagrees with the game Play opens.
 - **Day strip** at the bottom: five days centred on the selected one, each with its weekday, its number and a ring. Dashed ring: nothing counted. Half ring: a game *or* the puzzle. Full ring: both. Past days open their puzzle; the computer is always today.
 
@@ -83,6 +83,15 @@ No placement test. The level can be changed at any time.
 - Home's **Online** tile opens Apple's invite sheet straight away. With games going it opens a small menu instead: Invite a friend, then the games, your move first. Its badge counts games waiting on you. Signed out, it explains how to sign in.
 - Online games don't count toward the streak or Stats.
 - Needs the App Store Connect app record with Game Center (bundle `com.workgyver.chess`, Game Center capability enabled through asc). Testing needs two Game Center accounts.
+
+## Learn
+
+- Four courses, each a public lichess study bundled as PGN (`Chess/Learn/Courses`, refreshed by `tools/fetch-courses.sh`): as White, **London System** and **Italian Game** (LeninPerez); as Black, **Sicilian Dragon** (Sidattack243) and **Caro-Kann Defence** (LeninPerez). Authors are credited in the course page and About.
+- A lichess **gamebook** chapter becomes a played lesson: the comment after the opponent's move is the question for your move, the comment after your move says why, a sideline to your move is the answer to that particular wrong move, and `[%cal]` arrows and `[%csl]` circles are drawn in the author's colours. Other chapters (up to 30 plies) become watched lessons; diagrams without kings and long example games are left out.
+- The board accepts only the taught move; a wrong one settles back, the coach card shakes, and a second miss shows the move. Hint shows it at once.
+- **Practice** replays a learned lesson with no words or arrows; wrong moves and hints cost stars (3, 2 or 1). Progress is kept per lesson.
+- Every line was checked move by move, sidelines included, before bundling.
+- Licence note: lichess studies belong to their authors. Ask them before a public release.
 
 ## Free play
 

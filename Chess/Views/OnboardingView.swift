@@ -13,14 +13,13 @@ struct OnboardingView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      // The ground above the card shows what the app is: a board, set up and waiting.
       MiniBoard(pieces: Self.startPieces, flipped: false)
         .frame(maxWidth: 230)
         .rotationEffect(.degrees(-6))
         .softShadow(radius: 24, y: 12)
         .padding(.horizontal, 60)
         .padding(.vertical, 24)
-        // The board takes only the height the card leaves; it shrinks or fades, never the card.
+        // Give spare height to the decorative board; the card has layout priority.
         .frame(minHeight: 0, maxHeight: .infinity)
         .opacity(step == 0 ? 1 : 0.5)
         .accessibilityHidden(true)
@@ -152,7 +151,7 @@ struct OnboardingView: View {
   }
 }
 
-/// One thing the app does: a round symbol, a title and a line.
+/// Onboarding feature row, read as one VoiceOver element.
 private struct Feature: View {
   let symbol: String
   let title: String
@@ -177,7 +176,7 @@ private struct Feature: View {
   }
 }
 
-/// The app's mark: the logo tile, with the rounded corners iOS gives the icon.
+/// Decorative logo tile clipped to app-icon proportions.
 struct AppMark: View {
   var size: CGFloat = 68
 
@@ -192,8 +191,8 @@ struct AppMark: View {
   }
 }
 
-/// The reminder's time: a large readout over a slider in quarter hours, 5 AM to 11 PM. Each step
-/// ticks; `committed` runs when the finger lifts, so the reminder is rescheduled once.
+/// Reminder time in minutes after midnight, adjustable in quarter hours from 5 AM to 11 PM.
+/// Value changes trigger haptics; `committed` runs when slider editing ends.
 struct ReminderTime: View {
   @Binding var minute: Int
   var committed: (Int) -> Void = { _ in }
@@ -222,6 +221,7 @@ struct ReminderTime: View {
     .onChange(of: minute) { Haptics.selection() }
   }
 
+  /// Formats minutes after midnight using the current locale’s short time style.
   static func label(_ minute: Int) -> String {
     let date = Calendar.current.date(from: DateComponents(hour: minute / 60, minute: minute % 60)) ?? .now
     return date.formatted(date: .omitted, time: .shortened)

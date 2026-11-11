@@ -14,6 +14,7 @@ struct GameRecord: Codable, Equatable, Sendable {
   var date: Date
   var level: Level
   var result: Outcome
+  /// Full-move count, rounding an unfinished pair of plies up.
   var moves: Int
 }
 
@@ -43,6 +44,7 @@ final class History {
     mark(DayKey.of(game.date), game: true)
   }
 
+  /// Adds credit without clearing existing marks, then saves marks and games.
   func mark(_ day: String, game: Bool = false, puzzle: Bool = false) {
     var mark = days[day] ?? DayMark()
     mark.game = mark.game || game
@@ -51,6 +53,7 @@ final class History {
     Storage.write(File(days: days, games: games), to: url)
   }
 
+  /// Consecutive credited days ending today or yesterday.
   func streak(today: Date = .now) -> Int {
     let calendar = Calendar.current
     let counted = { (date: Date) in (self.days[DayKey.of(date)]?.count ?? 0) > 0 }
@@ -86,7 +89,7 @@ enum DayKey {
   }
 }
 
-/// JSON files under Application Support.
+/// Synchronous, best-effort JSON storage under Application Support; errors are discarded.
 enum Storage {
   static func file(_ name: String) -> URL {
     let folder = URL.applicationSupportDirectory

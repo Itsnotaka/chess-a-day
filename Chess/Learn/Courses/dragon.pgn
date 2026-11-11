@@ -1,0 +1,119 @@
+[Event "THE SICILIAN DRAGON: MAINLINE"]
+[Date "2021.08.08"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "B70"]
+[Opening "Sicilian Defense: Dragon Variation"]
+[StudyName "THE SICILIAN DRAGON"]
+[ChapterName "MAINLINE"]
+[ChapterURL "https://lichess.org/study/pCsPvGUQ/AlokB310"]
+[Annotator "https://lichess.org/@/Sidattack243"]
+[UTCDate "2021.08.08"]
+[UTCTime "15:18:33"]
+[Orientation "black"]
+[ChapterMode "gamebook"]
+
+{ Hello everyone!!
+We saw 2 openings from white side in the previous study.
+Time to destroy from black side now.
+We are now going to learn the sicilian dragon variation. One of the most aggressive openings from black side. I have personally tried this openings in many of my games and won many of them .
+So let's begin!! } 1. e4 { Play c5 } 1... c5 2. Nf3 { d6 } { [%csl Gd6] } 2... d6 3. d4 { Capture the pawn } 3... cxd4 4. Nxd4 { How can you attack the pawn and develop a piece at the same time? } { [%csl Ge4] } 4... Nf6 5. Nc3 { White protects e4 with knight c3 .
+Play g6 } 5... g6 { Here we come to the position setup of sicilian dragon, with those pawn resembling shape of a dragon. } { [%csl Gh7,Gg6,Gf7,Ge7,Gd6] } *
+
+
+[Event "THE SICILIAN DRAGON: PIECE POSITIONING"]
+[Date "2021.08.08"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "?"]
+[Opening "?"]
+[StudyName "THE SICILIAN DRAGON"]
+[ChapterName "PIECE POSITIONING"]
+[ChapterURL "https://lichess.org/study/pCsPvGUQ/uq44F2LL"]
+[Annotator "https://lichess.org/@/Sidattack243"]
+[FEN "2rq1rk1/pp1bppbp/2np1np1/8/8/8/8/8 w - - 0 1"]
+[SetUp "1"]
+[UTCDate "2021.08.08"]
+[UTCTime "15:34:44"]
+[Orientation "black"]
+[ChapterMode "gamebook"]
+
+{ This is how we are going to launch our pieces. Rook in a semi-open file,bishop on a long diagonal , knights having a strong control on the centre. } { [%csl Gc8,Gg4,Ge4,Gd4,Gb4][%cal Gc8c1,Gg7a1,Gc6d4,Gc6b4,Gf6e4,Gf6g4] } *
+
+
+[Event "THE SICILIAN DRAGON: LAUNCHING THE PIECES"]
+[Date "2021.08.08"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "B78"]
+[Opening "Sicilian Defense: Dragon Variation, Yugoslav Attack, Old Line"]
+[StudyName "THE SICILIAN DRAGON"]
+[ChapterName "LAUNCHING THE PIECES"]
+[ChapterURL "https://lichess.org/study/pCsPvGUQ/9wi95v6o"]
+[Annotator "https://lichess.org/@/Sidattack243"]
+[UTCDate "2021.08.08"]
+[UTCTime "15:37:33"]
+[Orientation "black"]
+[ChapterMode "gamebook"]
+
+{ Now you must be wondering how do we get to that complex position. Don't worry it's easy ! } 1. e4 { I hope you remember the moves } 1... c5 2. Nf3 { Now? } { [%csl Gd6] } 2... d6 3. d4 { Now? } 3... cxd4 4. Nxd4 { Attack that pawn and also develop a piece at the same time } { [%csl Ge4] } 4... Nf6 5. Nc3 { The main move? } 5... g6 6. Be3 { Where was this bishop placed in that position? } { [%csl Gf8] } 6... Bg7 7. f3 { Stopping us from playing knight to g4.
+Play knight to c6 } { [%csl Gg4,Gc6][%cal Gb8c6] } 7... Nc6 8. Qd2 { White prepares to castle on queen side.
+We castle too! } { [%csl Gc1,Gg8][%cal Ge1c1,Ge8g8] } 8... O-O 9. Bc4 { White developed all his pieces. Play bishop d7 } { [%csl Gd7][%cal Gc8d7] } 9... Bd7 10. O-O-O { Rook to c1 with a semi open file is always strong! } { [%csl Gc8][%cal Ga8c8] } 10... Rc8 { Lookout the white pieces are attacking on the king side.Well but it's a strong defensive position for black.Keep the pieces in coordination to have fair advantage. } { [%cal Gc4g8,Ge3h6,Gd2h6] } *
+
+
+[Event "THE SICILIAN DRAGON: ACCELERATED DRAGON"]
+[Date "2021.08.08"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "B34"]
+[Opening "Sicilian Defense: Accelerated Dragon, Modern Variation"]
+[StudyName "THE SICILIAN DRAGON"]
+[ChapterName "ACCELERATED DRAGON"]
+[ChapterURL "https://lichess.org/study/pCsPvGUQ/3CfBu25I"]
+[Annotator "https://lichess.org/@/Sidattack243"]
+[UTCDate "2021.08.08"]
+[UTCTime "15:47:07"]
+[Orientation "black"]
+[ChapterMode "gamebook"]
+
+1. e4 c5 2. Nf3 { Knight to c6 } { [%csl Gc6][%cal Gb8c6] } 2... Nc6 3. d4 { Cxd4 } 3... cxd4 4. Nxd4 { play g6 now } 4... g6 { This is the move for accelerated dragon. } { [%csl Gg6] } 5. Nc3 { Bishop to? } { [%csl Gg7][%cal Gf8g7] } 5... Bg7 { Now you continue the development as taught before! } *
+
+
+[Event "THE SICILIAN DRAGON: HYPERACCELERATED DRAGON"]
+[Date "2021.08.08"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "B27"]
+[Opening "Sicilian Defense: Hyperaccelerated Dragon"]
+[StudyName "THE SICILIAN DRAGON"]
+[ChapterName "HYPERACCELERATED DRAGON"]
+[ChapterURL "https://lichess.org/study/pCsPvGUQ/lj4BI4zW"]
+[Annotator "https://lichess.org/@/Sidattack243"]
+[UTCDate "2021.08.08"]
+[UTCTime "15:52:39"]
+[Orientation "black"]
+[ChapterMode "gamebook"]
+
+{ Yes faster than previous one!! } 1. e4 c5 2. Nf3 { g6 now } { [%csl Gg6][%cal Gg7g6] } 2... g6 { the hyperaccelerated dragon } 3. d4 { capture } { [%csl Gd4][%cal Gc5d4] } 3... cxd4 4. Nxd4 { Bg7 } { [%csl Gg7][%cal Gf8g7] } 4... Bg7 5. c4 { Nf6 } { [%csl Gf6][%cal Gg8f6] } 5... Nf6 { Two pieces developed rapidly and castling on king side saves the king from major threats! } { [%csl Gg7,Gf6][%cal Ge8g8] } *
+
+
+[Event "THE SICILIAN DRAGON: CONCLUSION"]
+[Date "2021.08.08"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "B70"]
+[Opening "Sicilian Defense: Dragon Variation"]
+[StudyName "THE SICILIAN DRAGON"]
+[ChapterName "CONCLUSION"]
+[ChapterURL "https://lichess.org/study/pCsPvGUQ/T6f77H9e"]
+[Annotator "https://lichess.org/@/Sidattack243"]
+[UTCDate "2021.08.08"]
+[UTCTime "16:06:14"]
+[Orientation "black"]
+[ChapterMode "gamebook"]
+
+{ Now you play all the moves. Good luck!! } 1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 { Well done you remember the moves!
+THANK YOU FOR WATCHING THIS STUDY. LEAVE A LIKE IF YOU FELT THIS STUDY WAS USEFUL.
+MEET YOU IN NEXT STUDY. } *
+
+

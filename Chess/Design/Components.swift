@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Presses sink a little and spring back: the one press feel every control shares.
-/// Under Reduce Motion a press only dims.
+/// Shared press feedback: scale and dim, or only dim under Reduce Motion.
 struct SoftPress: ButtonStyle {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -13,7 +12,7 @@ struct SoftPress: ButtonStyle {
   }
 }
 
-/// A 52-point round icon button on a card; with a `tint` it is filled with that colour.
+/// A round icon button, 52 points by default; `tint` overrides the card fill.
 struct CircleIconButton: View {
   let symbol: String
   let label: String
@@ -55,7 +54,7 @@ struct RaisedCircleButton: View {
   }
 }
 
-/// The black (white in dark mode) pill: the screen's one main action.
+/// The primary action, filled with the current ink colour.
 struct InkPill: View {
   let title: String
   var symbol: String?
@@ -235,16 +234,16 @@ struct SectionLabel: View {
   }
 }
 
+/// A one-point divider using the theme's hairline colour.
 struct Hairline: View {
   var body: some View { Theme.hairline.frame(height: 1) }
 }
 
-/// A segmented pill, masked like a good tab bar: the labels are drawn twice, muted underneath
-/// and active on top, and the active copy shows only through the sliding thumb, so a label
-/// changes colour exactly where the thumb covers it. The thumb follows a dragging finger
-/// continuously and snaps to the nearest segment on lift; a tap lands on lift, as
-/// UISegmentedControl does. VoiceOver meets it as a standard segmented picker.
+/// A segmented picker with two label layers; the thumb masks the active layer.
+/// Dragging updates the binding continuously; tapping commits on lift.
+/// VoiceOver uses a system segmented picker instead of the custom gesture.
 struct PillSegments<Option: Hashable, Label: View>: View {
+  /// Must be nonempty and unique; selection should be one of these values.
   let options: [Option]
   @Binding var selection: Option
   var height: CGFloat = 40
@@ -283,7 +282,6 @@ struct PillSegments<Option: Hashable, Label: View>: View {
           .updating($pressing) { _, state, _ in state = true }
           .onChanged { value in
             guard abs(value.translation.width) > 6 else { return }
-            // The thumb rides under the finger, kept inside the track.
             dragX = min(max(value.location.x - width / 2, 0), proxy.size.width - width)
             let nearest = segment(at: value.location.x, width: width)
             if options[nearest] != selection {
@@ -329,12 +327,13 @@ struct PillSegments<Option: Hashable, Label: View>: View {
   }
 }
 
-/// A pill that morphs through an async action: its label, a spinner as the pill draws in to a
-/// circle, then a check with `doneTitle`, then `finished`. Like a well-made Save button.
+/// Shows a spinner during an async action, then a success label or the idle state on failure.
+/// Calls `finished` after restoring idle on failure or briefly showing the success label.
 struct MorphPill: View {
   let title: String
   let doneTitle: String
   var symbol: String?
+  /// Return true for success; false restores the button for another attempt.
   let action: () async -> Bool
   var finished: (Bool) -> Void = { _ in }
 
@@ -350,7 +349,7 @@ struct MorphPill: View {
       Task {
         let started = ContinuousClock.now
         let ok = await action()
-        // A spinner that flashes for a frame reads as a glitch: hold it a beat.
+        // Keep fast actions from flashing the spinner.
         let shown = ContinuousClock.now - started
         if shown < .milliseconds(450) { try? await Task.sleep(for: .milliseconds(450) - shown) }
         guard ok else {
@@ -399,9 +398,7 @@ struct MorphPill: View {
   }
 }
 
-/// A round button that asks for a second tap instead of a dialog: the first tap stretches it
-/// into a pill naming the action, the second does it, and it shrinks back on its own after a
-/// few seconds. For things that can't be undone, such as resigning.
+/// Requires a second tap to confirm a destructive action; disarms after three seconds.
 struct ConfirmCircle: View {
   let symbol: String
   let title: String

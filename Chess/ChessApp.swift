@@ -1,9 +1,11 @@
 import SwiftUI
 
+/// Owns shared game state and applies app-wide appearance and typography.
 @main
 struct ChessApp: App {
   @State private var history: History
   @State private var games: Games
+  @State private var learning = LearnProgress()
   @AppStorage(Pref.appearance) private var appearance = Appearance.system.rawValue
 
   init() {
@@ -19,6 +21,7 @@ struct ChessApp: App {
         .environment(games)
         .environment(games.computer)
         .environment(games.online)
+        .environment(learning)
         .fontDesign(.rounded)
         .preferredColorScheme(Appearance(rawValue: appearance)?.scheme)
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
@@ -33,7 +36,7 @@ struct ChessApp: App {
   }
 }
 
-/// The two saved games: one against the computer, one of free play.
+/// Owns the computer and free-play stores and the Game Center match coordinator.
 @MainActor
 @Observable
 final class Games {
@@ -47,15 +50,18 @@ final class Games {
     online = OnlineGames(history: history)
   }
 
+  /// Lessons fall back to the computer store; online uses the coordinator's current store.
   func store(_ mode: GameMode) -> GameStore {
     switch mode {
     case .computer: computer
     case .friend: friend
     case .online: online.store
+    case .lesson: computer
     }
   }
 }
 
+/// Switches from onboarding to home when the persisted onboarding flag is set.
 struct RootView: View {
   @AppStorage(Pref.onboarded) private var onboarded = false
 

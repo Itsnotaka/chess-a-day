@@ -18,7 +18,7 @@ actor ChessEngine {
   private var pending: CheckedContinuation<String?, Never>?
   private var started = false
 
-  /// Starts Stockfish once and waits until it answers `readyok`; call early to warm it up.
+  /// The first call starts Stockfish and waits for `readyok`; later calls return immediately.
   func warmUp() async {
     guard Self.hasNetworks, !started else { return }
     started = true
@@ -33,7 +33,8 @@ actor ChessEngine {
     }
   }
 
-  /// The move to play in `fen` at `level`, in UCI form ("e7e5", "a7a8q").
+  /// Returns a UCI move ("e7e5", "a7a8q"), or nil if no move is available.
+  /// Callers must not overlap searches: there is only one pending continuation.
   func bestMove(fen: String, level: Level) async -> String? {
     guard Self.hasNetworks else { return Fallback.bestMove(fen: fen, level: level) }
     await warmUp()
@@ -70,6 +71,7 @@ actor ChessEngine {
     print("[bench] done")
   }
 
+  /// Clears Stockfish's game state if startup has begun; does not stop a search.
   func newGame() async {
     guard started else { return }
     await engine.send(command: .ucinewgame)
@@ -89,8 +91,8 @@ actor ChessEngine {
   }
 }
 
-/// One ply plus the opponent's best capture, with deliberate slips at the lower levels.
-/// Deterministic per position, so a replayed game replays the same.
+/// Scores each legal move by material, centralization and the largest threatened piece.
+/// A position-derived roll occasionally chooses a weaker move, more often at lower levels.
 enum Fallback {
   static func bestMove(fen: String, level: Level) -> String? {
     guard let position = Position(fen: fen) else { return nil }
@@ -109,6 +111,7 @@ enum Fallback {
     return roll % sloppiness == 0 ? ranked[roll % ranked.count].uci : best.uci
   }
 
+  /// Material values in centipawns.
   private static let value: [Piece.Kind: Int] = [.pawn: 100, .knight: 320, .bishop: 330, .rook: 500, .queen: 900, .king: 0]
 
   private static func moves(on board: Board, for side: Piece.Color) -> [(from: Square, to: Square, uci: String)] {
